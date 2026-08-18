@@ -1,0 +1,93 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "anthropic/claude-sonnet-4-6",
+  "small_model": "anthropic/claude-sonnet-4-6",
+  "default_agent": "build",
+  "shell": "python",
+  "logLevel": "INFO",
+  "share": "manual",
+  "autoupdate": true,
+  "snapshot": true,
+  "instructions": ["AGENTS.md"],
+  "skills": {
+    "paths": [".opencode/skills"]
+  },
+  "references": {
+    "fastapi-docs": {
+      "path": "https://fastapi.tiangolo.com/",
+      "description": "FastAPI官方文档"
+    },
+    "sqlalchemy-docs": {
+      "path": "https://docs.sqlalchemy.org/",
+      "description": "SQLAlchemy文档"
+    }
+  },
+  "agent": {
+    "fitness-backend": {
+      "description": "专门用于FitTrack健身应用后端开发的代理",
+      "mode": "primary",
+      "model": "anthropic/claude-sonnet-4-6",
+      "permission": {
+        "edit": "allow",
+        "bash": {
+          "python *": "allow",
+          "pip *": "allow",
+          "pytest *": "allow",
+          "uvicorn *": "allow",
+          "*": "ask"
+        }
+      },
+      "prompt": "你是FitTrack健身应用的后端开发专家。你精通FastAPI、SQLAlchemy、SQLite，擅长设计RESTful API、数据模型和业务逻辑。"
+    },
+    "api-reviewer": {
+      "description": "审查API设计、数据模型和代码质量",
+      "mode": "subagent",
+      "model": "anthropic/claude-sonnet-4-6",
+      "permission": {
+        "edit": "deny",
+        "bash": "ask"
+      },
+      "prompt": "你是API代码审查专家。你关注RESTful设计规范、数据验证、错误处理、性能优化和安全性。"
+    }
+  },
+  "command": {
+    "dev": {
+      "description": "启动开发服务器",
+      "agent": "build",
+      "template": "启动FastAPI开发服务器：$ARGUMENTS"
+    },
+    "test": {
+      "description": "运行后端测试",
+      "agent": "build",
+      "template": "运行后端测试：$ARGUMENTS"
+    },
+    "migrate": {
+      "description": "运行数据库迁移",
+      "agent": "build",
+      "template": "执行数据库迁移：$ARGUMENTS"
+    }
+  },
+  "mcp": {
+    "fastapi-tools": {
+      "type": "local",
+      "command": ["python", "-m", "opencode_mcp_fastapi"],
+      "enabled": true,
+      "environment": {
+        "PYTHONPATH": "${PYTHONPATH}"
+      }
+    }
+  },
+  "permission": {
+    "edit": "allow",
+    "bash": {
+      "python *": "allow",
+      "pip *": "allow",
+      "pytest *": "allow",
+      "uvicorn *": "allow",
+      "alembic *": "allow",
+      "*": "ask"
+    }
+  },
+  "formatter": true,
+  "lsp": true
+}

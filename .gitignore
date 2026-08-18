@@ -1,0 +1,18 @@
+# IDE / 工具目录
+.codebuddy/
+.idea/
+.opencode/
+.vscode/
+
+# Python
+__pycache__/
+*.pyc
+*.db
+backend/fittrack.db
+
+# Node
+node_modules/
+
+# 无关文件
+t.py
+books.csv

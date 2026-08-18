@@ -3,7 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#16a34a">
+  <meta name="description" content="FitTrack - 你的私人健身助手，支持训练计划、训练记录、营养追踪、成就系统">
   <title>FitTrack - 健身助手</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icons/icon-192x192.png">
   <link rel="stylesheet" href="css/style.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 </head>
@@ -14,14 +18,18 @@
         <span class="logo">💪</span>
         <h1>FitTrack</h1>
       </div>
-      <p class="header-sub">你的私人健身助手</p>
+      <p class="header-sub" id="header-sub">你的私人健身助手</p>
     </header>
 
     <nav class="nav">
-      <button class="nav-btn active" data-tab="plan">训练计划</button>
-      <button class="nav-btn" data-tab="workout">开始训练</button>
-      <button class="nav-btn" data-tab="timer">休息计时</button>
-      <button class="nav-btn" data-tab="stats">进度统计</button>
+      <button class="nav-btn active" data-tab="plan">📋 计划</button>
+      <button class="nav-btn" data-tab="workout">🏋️ 训练</button>
+      <button class="nav-btn" data-tab="timer">⏱️ 计时</button>
+      <button class="nav-btn" data-tab="nutrition">🥗 营养</button>
+      <button class="nav-btn" data-tab="stats">📈 统计</button>
+      <button class="nav-btn" data-tab="body">⚖️ 身体</button>
+      <button class="nav-btn" data-tab="achievements">🏆 成就</button>
+      <button class="nav-btn" data-tab="settings">⚙️ 设置</button>
     </nav>
 
     <main class="main">
@@ -63,13 +71,19 @@
         <div id="plan-result" class="card hidden">
           <div class="card-header">
             <h2 id="plan-title">你的训练计划</h2>
-            <button id="save-plan" class="btn btn-secondary">保存计划</button>
+            <div class="card-header-actions">
+              <button id="reshuffle-plan" class="btn btn-secondary">🔄 换一批</button>
+              <button id="save-plan" class="btn btn-primary">保存计划</button>
+            </div>
           </div>
           <div id="plan-days" class="plan-days"></div>
         </div>
 
         <div id="saved-plan" class="card hidden">
-          <h2>当前计划</h2>
+          <div class="card-header">
+            <h2>当前计划</h2>
+            <span class="badge" id="saved-plan-badge">已保存</span>
+          </div>
           <div id="saved-plan-content"></div>
         </div>
       </section>
@@ -82,12 +96,16 @@
             <p>请先在「训练计划」中生成并保存计划</p>
           </div>
           <div id="workout-content" class="hidden">
+            <div class="workout-timer">
+              <span>⏱️ 训练计时</span>
+              <span class="workout-timer-display" id="workout-timer-display">00:00</span>
+            </div>
             <label>
               选择训练日
               <select id="workout-day"></select>
             </label>
             <div id="exercise-list" class="exercise-list"></div>
-            <button id="finish-workout" class="btn btn-primary">完成训练</button>
+            <button id="finish-workout" class="btn btn-primary" style="width:100%; margin-top:0.75rem;">完成训练</button>
           </div>
         </div>
 
@@ -101,7 +119,13 @@
       <section id="tab-timer" class="tab">
         <div class="card timer-card">
           <h2>休息计时器</h2>
-          <div class="timer-display" id="timer-display">01:30</div>
+          <div class="timer-circle">
+            <svg viewBox="0 0 200 200" class="timer-svg">
+              <circle class="timer-ring-track" cx="100" cy="100" r="88"></circle>
+              <circle class="timer-ring" id="timer-ring" cx="100" cy="100" r="88"></circle>
+            </svg>
+            <div class="timer-display" id="timer-display">01:30</div>
+          </div>
           <div class="timer-presets">
             <button class="btn btn-preset" data-seconds="60">60秒</button>
             <button class="btn btn-preset active" data-seconds="90">90秒</button>
@@ -113,6 +137,7 @@
             <input type="number" id="timer-custom" min="10" max="600" value="90">
           </label>
           <div class="timer-controls">
+            <button id="timer-add" class="btn btn-secondary">+30秒</button>
             <button id="timer-start" class="btn btn-primary">开始</button>
             <button id="timer-pause" class="btn btn-secondary hidden">暂停</button>
             <button id="timer-reset" class="btn btn-secondary">重置</button>
@@ -124,26 +149,45 @@
       <section id="tab-stats" class="tab">
         <div class="stats-grid">
           <div class="stat-card">
+            <span class="stat-icon">🏆</span>
             <span class="stat-value" id="stat-total">0</span>
             <span class="stat-label">总训练次数</span>
           </div>
           <div class="stat-card">
+            <span class="stat-icon">📅</span>
             <span class="stat-value" id="stat-week">0</span>
             <span class="stat-label">本周训练</span>
           </div>
           <div class="stat-card">
+            <span class="stat-icon">🔥</span>
             <span class="stat-value" id="stat-streak">0</span>
             <span class="stat-label">连续天数</span>
           </div>
           <div class="stat-card">
+            <span class="stat-icon">🏋️</span>
             <span class="stat-value" id="stat-volume">0</span>
             <span class="stat-label">总训练量(kg)</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-icon">💪</span>
+            <span class="stat-value" id="stat-sets">0</span>
+            <span class="stat-label">总完成组数</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-icon">⏱️</span>
+            <span class="stat-value" id="stat-duration">0</span>
+            <span class="stat-label">训练总时长</span>
           </div>
         </div>
 
         <div class="card">
           <h2>每周训练频率</h2>
           <canvas id="chart-weekly"></canvas>
+        </div>
+
+        <div class="card">
+          <h2>部位训练分布</h2>
+          <canvas id="chart-muscle"></canvas>
         </div>
 
         <div class="card">
@@ -155,14 +199,266 @@
           <canvas id="chart-progress"></canvas>
         </div>
       </section>
+
+      <!-- 身体数据 -->
+      <section id="tab-body" class="tab">
+        <div class="card">
+          <h2>记录体重</h2>
+          <form id="body-form" class="form">
+            <div class="form-row">
+              <label>
+                日期
+                <input type="date" id="body-date">
+              </label>
+              <label>
+                体重 (kg)
+                <input type="number" id="body-weight" step="0.1" min="20" max="300" placeholder="如 65.5" required>
+              </label>
+            </div>
+            <button type="submit" class="btn btn-primary">记录体重</button>
+          </form>
+        </div>
+
+        <div class="stats-grid">
+          <div class="stat-card">
+            <span class="stat-icon">⚖️</span>
+            <span class="stat-value" id="body-latest">--</span>
+            <span class="stat-label">当前体重(kg)</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-icon">🧮</span>
+            <span class="stat-value" id="body-bmi">--</span>
+            <span class="stat-label" id="body-bmi-label">BMI</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-icon">📉</span>
+            <span class="stat-value" id="body-change">--</span>
+            <span class="stat-label">较上次变化</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-icon">🗂️</span>
+            <span class="stat-value" id="body-total">0</span>
+            <span class="stat-label">记录次数</span>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>体重变化</h2>
+          <canvas id="chart-body"></canvas>
+        </div>
+
+        <div class="card">
+          <h2>历史记录</h2>
+          <div id="body-history"></div>
+        </div>
+      </section>
+
+      <!-- 营养追踪 -->
+      <section id="tab-nutrition" class="tab">
+        <div class="card">
+          <h2>今日营养摄入</h2>
+          <div class="nutrition-summary">
+            <div class="nutrition-progress">
+              <div class="progress-ring" id="calories-ring">
+                <svg viewBox="0 0 100 100">
+                  <circle class="progress-ring-bg" cx="50" cy="50" r="40"></circle>
+                  <circle class="progress-ring-fill" id="calories-progress" cx="50" cy="50" r="40"></circle>
+                </svg>
+                <div class="progress-ring-text">
+                  <span class="progress-value" id="calories-current">0</span>
+                  <span class="progress-label">千卡</span>
+                </div>
+              </div>
+              <div class="nutrition-goals">
+                <div class="goal-item">
+                  <span class="goal-label">目标</span>
+                  <span class="goal-value" id="calories-goal">2000</span>
+                  <span class="goal-unit">千卡</span>
+                </div>
+                <div class="goal-item">
+                  <span class="goal-label">剩余</span>
+                  <span class="goal-value" id="calories-remaining">2000</span>
+                  <span class="goal-unit">千卡</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="macro-bars">
+            <div class="macro-item">
+              <div class="macro-header">
+                <span class="macro-name">蛋白质</span>
+                <span class="macro-value"><span id="protein-current">0</span>/<span id="protein-goal">150</span>g</span>
+              </div>
+              <div class="macro-bar">
+                <div class="macro-bar-fill protein" id="protein-progress" style="width: 0%"></div>
+              </div>
+            </div>
+            <div class="macro-item">
+              <div class="macro-header">
+                <span class="macro-name">碳水</span>
+                <span class="macro-value"><span id="carbs-current">0</span>/<span id="carbs-goal">250</span>g</span>
+              </div>
+              <div class="macro-bar">
+                <div class="macro-bar-fill carbs" id="carbs-progress" style="width: 0%"></div>
+              </div>
+            </div>
+            <div class="macro-item">
+              <div class="macro-header">
+                <span class="macro-name">脂肪</span>
+                <span class="macro-value"><span id="fat-current">0</span>/<span id="fat-goal">65</span>g</span>
+              </div>
+              <div class="macro-bar">
+                <div class="macro-bar-fill fat" id="fat-progress" style="width: 0%"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h2>添加食物</h2>
+            <button id="add-food-btn" class="btn btn-primary">+ 添加</button>
+          </div>
+          <div id="food-search" class="food-search hidden">
+            <input type="text" id="food-search-input" placeholder="搜索食物...">
+            <div id="food-search-results" class="food-search-results"></div>
+          </div>
+          <div id="today-meals" class="meals-list"></div>
+        </div>
+
+        <div class="card">
+          <h2>喝水记录</h2>
+          <div class="water-tracker">
+            <div class="water-progress">
+              <span class="water-icon">💧</span>
+              <span class="water-amount"><span id="water-current">0</span>/<span id="water-goal">2000</span>ml</span>
+            </div>
+            <div class="water-buttons">
+              <button class="btn btn-secondary water-btn" data-amount="150">+150ml</button>
+              <button class="btn btn-secondary water-btn" data-amount="250">+250ml</button>
+              <button class="btn btn-secondary water-btn" data-amount="500">+500ml</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>营养目标设置</h2>
+          <form id="nutrition-goals-form" class="form">
+            <div class="form-row">
+              <label>
+                每日热量 (千卡)
+                <input type="number" id="goal-calories" min="1000" max="5000" step="50">
+              </label>
+              <label>
+                蛋白质 (g)
+                <input type="number" id="goal-protein" min="50" max="300" step="5">
+              </label>
+            </div>
+            <div class="form-row">
+              <label>
+                碳水 (g)
+                <input type="number" id="goal-carbs" min="50" max="500" step="5">
+              </label>
+              <label>
+                脂肪 (g)
+                <input type="number" id="goal-fat" min="20" max="200" step="5">
+              </label>
+            </div>
+            <button type="submit" class="btn btn-primary">保存目标</button>
+          </form>
+        </div>
+      </section>
+
+      <!-- 成就系统 -->
+      <section id="tab-achievements" class="tab">
+        <div class="card">
+          <h2>成就概览</h2>
+          <div class="achievements-stats">
+            <div class="achievement-stat">
+              <span class="stat-icon">🏅</span>
+              <span class="stat-value" id="achievements-unlocked">0</span>
+              <span class="stat-label">已解锁</span>
+            </div>
+            <div class="achievement-stat">
+              <span class="stat-icon">🎯</span>
+              <span class="stat-value" id="achievements-total">0</span>
+              <span class="stat-label">总成就</span>
+            </div>
+            <div class="achievement-stat">
+              <span class="stat-icon">⭐</span>
+              <span class="stat-value" id="badges-earned">0</span>
+              <span class="stat-label">徽章</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>已获得徽章</h2>
+          <div id="earned-badges" class="badges-grid"></div>
+        </div>
+
+        <div class="card">
+          <h2>成就列表</h2>
+          <div id="achievements-list" class="achievements-list"></div>
+        </div>
+      </section>
+
+      <!-- 设置 -->
+      <section id="tab-settings" class="tab">
+        <div class="card">
+          <h2>个人资料</h2>
+          <form id="profile-form" class="form">
+            <label>
+              昵称
+              <input type="text" id="profile-name" placeholder="你的名字">
+            </label>
+            <label>
+              身高 (cm)
+              <input type="number" id="profile-height" step="0.5" min="80" max="250" placeholder="如 175">
+            </label>
+            <button type="submit" class="btn btn-primary">保存资料</button>
+          </form>
+        </div>
+
+        <div class="card">
+          <h2>数据管理</h2>
+          <p class="setting-desc">数据保存在浏览器本地。可以导出备份，或从备份文件恢复。</p>
+          <div class="setting-actions">
+            <button id="export-data" class="btn btn-secondary">📤 导出数据（备份）</button>
+            <button id="import-data" class="btn btn-secondary">📥 导入数据（恢复）</button>
+            <input type="file" id="import-file" accept=".json,application/json" hidden>
+            <button id="clear-data" class="btn btn-danger">🗑️ 清空所有数据</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="about-logo">
+            <span class="logo">💪</span>
+            <div class="about-title">FitTrack 健身助手</div>
+            <div class="about-version">v2.0 · 纯前端 · 数据本地存储</div>
+          </div>
+          <p class="setting-desc" style="text-align:center;">
+            支持训练计划、训练记录、休息计时、进度统计、身体数据追踪与数据备份
+          </p>
+        </div>
+      </section>
     </main>
   </div>
 
+  <script src="js/api.js"></script>
   <script src="js/exercises.js"></script>
   <script src="js/plans.js"></script>
   <script src="js/storage.js"></script>
   <script src="js/timer.js"></script>
   <script src="js/stats.js"></script>
+  <script src="js/body.js"></script>
+  <script src="js/nutrition.js"></script>
+  <script src="js/nutrition-ui.js"></script>
+  <script src="js/achievements.js"></script>
+  <script src="js/achievements-ui.js"></script>
+  <script src="js/theme.js"></script>
+  <script src="js/settings.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

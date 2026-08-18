@@ -1,21 +1,24 @@
 const Stats = {
   weeklyChart: null,
   progressChart: null,
+  muscleChart: null,
+  MUSCLE_COLORS: ['#16a34a', '#3b82f6', '#d97706', '#dc2626', '#8b5cf6', '#0891b2', '#ec4899', '#84cc16', '#64748b', '#f59e0b'],
 
   init() {
     this.exerciseSelect = document.getElementById('chart-exercise');
     this.exerciseSelect.addEventListener('change', () => this.renderProgressChart());
   },
 
-  refresh() {
-    this.updateSummary();
-    this.renderWeeklyChart();
-    this.updateExerciseSelect();
-    this.renderProgressChart();
+  async refresh() {
+    await this.updateSummary();
+    await this.renderWeeklyChart();
+    await this.renderMuscleChart();
+    await this.updateExerciseSelect();
+    await this.renderProgressChart();
   },
 
-  updateSummary() {
-    const logs = Storage.getLogs();
+  async updateSummary() {
+    const logs = await Storage.getLogs();
     const now = new Date();
     const weekStart = getWeekStart(now);
 
@@ -27,16 +30,24 @@ const Stats = {
     document.getElementById('stat-streak').textContent = this.calcStreak(logs);
 
     let totalVolume = 0;
+    let totalSets = 0;
+    let totalDuration = 0;
     logs.forEach((log) => {
+      if (log.duration) totalDuration += log.duration;
       log.exercises.forEach((ex) => {
         ex.sets.forEach((set) => {
-          if (set.done && set.weight && set.reps) {
-            totalVolume += set.weight * set.reps;
+          if (set.done) {
+            totalSets++;
+            if (set.weight && set.reps) {
+              totalVolume += set.weight * set.reps;
+            }
           }
         });
       });
     });
     document.getElementById('stat-volume').textContent = totalVolume.toLocaleString();
+    document.getElementById('stat-sets').textContent = totalSets.toLocaleString();
+    document.getElementById('stat-duration').textContent = formatDuration(totalDuration);
   },
 
   calcStreak(logs) {
@@ -62,8 +73,8 @@ const Stats = {
     return streak;
   },
 
-  renderWeeklyChart() {
-    const logs = Storage.getLogs();
+  async renderWeeklyChart() {
+    const logs = await Storage.getLogs();
     const weeks = [];
     const counts = [];
 
@@ -93,10 +104,10 @@ const Stats = {
           {
             label: '训练次数',
             data: counts,
-            backgroundColor: 'rgba(34, 197, 94, 0.7)',
-            borderColor: '#22c55e',
+            backgroundColor: 'rgba(22, 163, 74, 0.75)',
+            borderColor: '#16a34a',
             borderWidth: 1,
-            borderRadius: 6,
+            borderRadius: 8,
           },
         ],
       },
@@ -106,11 +117,11 @@ const Stats = {
         scales: {
           y: {
             beginAtZero: true,
-            ticks: { stepSize: 1, color: '#8b9cb3' },
-            grid: { color: '#2d3a4f' },
+            ticks: { stepSize: 1, color: '#64748b' },
+            grid: { color: '#eef1f6' },
           },
           x: {
-            ticks: { color: '#8b9cb3' },
+            ticks: { color: '#64748b' },
             grid: { display: false },
           },
         },
@@ -118,8 +129,67 @@ const Stats = {
     });
   },
 
-  updateExerciseSelect() {
-    const names = Storage.getAllExerciseNames();
+  async renderMuscleChart() {
+    const logs = await Storage.getLogs();
+    const muscleCount = {};
+
+    logs.forEach((log) => {
+      log.exercises.forEach((ex) => {
+        const done = ex.sets.filter((s) => s.done).length;
+        if (done > 0) {
+          muscleCount[ex.muscle] = (muscleCount[ex.muscle] || 0) + done;
+        }
+      });
+    });
+
+    const labels = Object.keys(muscleCount);
+    const values = Object.values(muscleCount);
+    const ctx = document.getElementById('chart-muscle');
+    if (this.muscleChart) this.muscleChart.destroy();
+
+    if (labels.length === 0) {
+      ctx.style.display = 'none';
+      let empty = ctx.parentElement.querySelector('.chart-empty');
+      if (!empty) {
+        empty = document.createElement('p');
+        empty.className = 'chart-empty';
+        empty.textContent = '暂无训练数据';
+        ctx.parentElement.appendChild(empty);
+      }
+      return;
+    }
+    ctx.style.display = '';
+    const empty = ctx.parentElement.querySelector('.chart-empty');
+    if (empty) empty.remove();
+
+    this.muscleChart = new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels,
+        datasets: [
+          {
+            data: values,
+            backgroundColor: this.MUSCLE_COLORS,
+            borderWidth: 3,
+            borderColor: '#ffffff',
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        cutout: '62%',
+        plugins: {
+          legend: {
+            position: 'bottom',
+            labels: { color: '#475569', usePointStyle: true, padding: 12, boxWidth: 8 },
+          },
+        },
+      },
+    });
+  },
+
+  async updateExerciseSelect() {
+    const names = await Storage.getAllExerciseNames();
     const current = this.exerciseSelect.value;
     this.exerciseSelect.innerHTML = names
       .map((n) => `<option value="${n}">${n}</option>`)
@@ -129,11 +199,11 @@ const Stats = {
     }
   },
 
-  renderProgressChart() {
+  async renderProgressChart() {
     const exerciseName = this.exerciseSelect.value;
     if (!exerciseName) return;
 
-    const logs = Storage.getLogs().slice().reverse();
+    const logs = (await Storage.getLogs()).slice().reverse();
     const labels = [];
     const maxWeights = [];
 
@@ -175,11 +245,11 @@ const Stats = {
         scales: {
           y: {
             beginAtZero: false,
-            ticks: { color: '#8b9cb3' },
-            grid: { color: '#2d3a4f' },
+            ticks: { color: '#64748b' },
+            grid: { color: '#eef1f6' },
           },
           x: {
-            ticks: { color: '#8b9cb3', maxRotation: 45 },
+            ticks: { color: '#64748b', maxRotation: 45 },
             grid: { display: false },
           },
         },

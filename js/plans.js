@@ -1,3 +1,7 @@
+function levelLabel(level) {
+  return level === 'beginner' ? '新手' : level === 'intermediate' ? '中级' : '高级';
+}
+
 function generatePlan(goal, days, level) {
   const config = GOAL_CONFIG[goal];
   const template = SPLIT_TEMPLATES[days];
@@ -41,8 +45,9 @@ function generatePlan(goal, days, level) {
 
 function renderPlan(plan, container) {
   container.innerHTML = plan.planDays
-    .map(
-      (day) => `
+    .map((day) => {
+      const rest = day.exercises[0] ? day.exercises[0].rest : 0;
+      return `
     <div class="plan-day">
       <div class="plan-day-header">
         <span class="plan-day-name">${day.name}</span>
@@ -51,33 +56,55 @@ function renderPlan(plan, container) {
       <ul class="plan-exercises">
         ${day.exercises
           .map(
-            (ex) =>
-              `<li>${ex.name} — ${ex.sets}组 × ${ex.reps}次 (${ex.muscle})</li>`
+            (ex) => `
+          <li>
+            <span class="ex-name">${ex.name}</span>
+            <span class="ex-tag">${ex.muscle}</span>
+            <span class="ex-tag ex-tag-equipment">${ex.equipment}</span>
+            <span class="ex-spec">${ex.sets}组 × ${ex.reps}次</span>
+          </li>`
           )
           .join('')}
       </ul>
+      <div class="plan-rest">组间休息 ${rest} 秒</div>
     </div>
-  `
-    )
+  `;
+    })
     .join('');
 }
 
 function renderSavedPlan(plan, container) {
   container.innerHTML = `
-    <p style="color: var(--text-muted); margin-bottom: 0.75rem; font-size: 0.85rem;">
-      ${plan.goalLabel} · 每周 ${plan.days} 天 · ${plan.level === 'beginner' ? '新手' : plan.level === 'intermediate' ? '中级' : '高级'}
-    </p>
+    <div class="plan-meta">
+      <span class="badge">${plan.goalLabel}</span>
+      <span class="badge">每周 ${plan.days} 天</span>
+      <span class="badge">${levelLabel(plan.level)}</span>
+    </div>
     ${plan.planDays
-      .map(
-        (day) => `
+      .map((day) => {
+        const rest = day.exercises[0] ? day.exercises[0].rest : 0;
+        return `
       <div class="plan-day" style="margin-bottom: 0.5rem;">
         <div class="plan-day-header">
           <span class="plan-day-name">${day.name}</span>
           <span class="plan-day-focus">${day.focus}</span>
         </div>
+        <ul class="plan-exercises">
+          ${day.exercises
+            .map(
+              (ex) => `
+            <li>
+              <span class="ex-name">${ex.name}</span>
+              <span class="ex-tag">${ex.muscle}</span>
+              <span class="ex-spec">${ex.sets}组 × ${ex.reps}次</span>
+            </li>`
+            )
+            .join('')}
+        </ul>
+        <div class="plan-rest">组间休息 ${rest} 秒</div>
       </div>
-    `
-      )
+    `;
+      })
       .join('')}
   `;
 }
