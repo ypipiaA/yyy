@@ -191,6 +191,66 @@ py -m mypy app/
 - 后端：使用Uvicorn或Gunicorn
 - 数据库：SQLite（生产环境可升级到PostgreSQL）
 
+## GitHub Pages 部署（PWA）
+
+本项目已配置好 **GitHub Actions 自动部署**，代码推送到 `main` 分支后，会自动构建前端静态文件并发布到 GitHub Pages，同时支持作为 PWA 安装到手机桌面。
+
+**线上地址：** `https://ypipiaA.github.io/yyy/`
+
+### 部署架构
+
+```
+git push (main) 
+    ↓ 自动触发
+.github/workflows/pages.yml
+    ├── build  → 复制 index.html / css / js / icons / manifest.json / service-worker.js 到 _site/
+    └── deploy → 发布 _site/ 到 GitHub Pages
+```
+
+### 首次部署（已完成）
+
+以下步骤已在本次部署中完成，作为后续参考：
+
+1. **PWA 子路径适配**（部署到 `username.github.io/repo/` 必须）：
+   - `js/app.js`：Service Worker 注册改为相对路径 `register('service-worker.js')`
+   - `service-worker.js`：缓存清单全部改为相对路径 `./xxx`
+   - `manifest.json`：`start_url` 与 `scope` 设为 `./`
+2. **创建 `.gitignore`**：排除 IDE 目录、`__pycache__`、`*.db` 及无关文件
+3. **创建 `.github/workflows/pages.yml`**：自动构建部署
+4. **推送代码**：`git push -u origin HEAD:main`
+5. **启用 GitHub Pages**：仓库 `Settings → Pages → Source → GitHub Actions`
+
+### 更新流程
+
+修改代码后，只需三步即可让线上版本更新：
+
+```bash
+git add -A
+git commit -m "描述本次改动"
+git push origin main
+```
+
+推送后 GitHub Actions 自动重新构建部署（约 1~2 分钟）。手机端重新打开应用（或下拉刷新）即获取最新版本。
+
+> 提示：如需让手机端立刻使用新版本，可在已安装的 PWA 中关闭应用后重新打开。
+
+### 国内网络环境推送
+
+如果直连 GitHub 推送失败（`Connection was reset`），而系统代理开着（如 `127.0.0.1:7877`），可临时走代理推送：
+
+```bash
+git -c http.proxy=http://127.0.0.1:7877 -c https.proxy=http://127.0.0.1:7877 push origin main
+```
+
+### 手机端安装 PWA
+
+1. 手机浏览器打开线上地址
+2. Android（Chrome/Edge）：菜单 → 「安装应用」
+3. iPhone（Safari）：分享 → 「添加到主屏幕」
+4. 桌面出现 FitTrack 图标，全屏启动，支持离线使用
+
+> 注意：当前数据存储在浏览器 `localStorage`，**换设备/清缓存会丢失**。如需多设备同步，需部署 `backend/` 并将 `js/api.js` 中 `USE_API` 改为 `true`。
+
 ## 更新日志
 
 ### v3.0 (2024)
