@@ -1,0 +1,41 @@
+{
+  "packageId": "org.futuresparkzone.fittrack",
+  "host": "ypipiaa.github.io",
+  "name": "FitTrack 健身助手",
+  "launcherName": "FitTrack",
+  "display": "standalone",
+  "themeColor": "#16a34a",
+  "themeColorDark": "#16a34a",
+  "navigationColor": "#16a34a",
+  "navigationColorDark": "#16a34a",
+  "navigationDividerColor": "#16a34a",
+  "navigationDividerColorDark": "#16a34a",
+  "backgroundColor": "#ffffff",
+  "enableNotifications": true,
+  "startUrl": "/yyy/",
+  "iconUrl": "https://ypipiaa.github.io/yyy/icons/icon-512x512.png",
+  "splashScreenFadeOutDuration": 300,
+  "signingKey": {
+    "path": "./android.keystore",
+    "alias": "fittrack"
+  },
+  "appVersionName": "3.1.0",
+  "appVersionCode": 31,
+  "shortcuts": [],
+  "generatorApp": "bubblewrap-cli",
+  "webManifestUrl": "https://ypipiaa.github.io/yyy/manifest.json",
+  "fallbackType": "customtabs",
+  "features": {},
+  "alphaDependencies": {
+    "enabled": false
+  },
+  "enableSiteSettingsShortcut": true,
+  "isChromeOSOnly": false,
+  "isMetaQuest": false,
+  "fullScopeUrl": "https://ypipiaa.github.io/yyy/",
+  "minSdkVersion": 21,
+  "orientation": "portrait",
+  "fingerprints": [],
+  "additionalTrustedOrigins": [],
+  "retainedBundles": []
+}
