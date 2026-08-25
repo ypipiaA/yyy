@@ -48,6 +48,13 @@ const API = {
       });
     },
 
+    async update(id, plan) {
+      return API.request(`/plans/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(plan),
+      });
+    },
+
     async activate(id) {
       return API.request(`/plans/${id}/activate`, {
         method: 'PUT',
@@ -63,7 +70,8 @@ const API = {
 
   // 训练记录API
   workouts: {
-    async getAll(skip = 0, limit = 50) {
+    // limit=0 表示不分页拉全量（前端统计/成就/streak 依赖完整 logs）
+    async getAll(skip = 0, limit = 0) {
       return API.request(`/workouts/?skip=${skip}&limit=${limit}`);
     },
 
@@ -75,6 +83,12 @@ const API = {
       return API.request('/workouts/', {
         method: 'POST',
         body: JSON.stringify(workout),
+      });
+    },
+
+    async delete(id) {
+      return API.request(`/workouts/${id}`, {
+        method: 'DELETE',
       });
     },
 
@@ -108,13 +122,19 @@ const API = {
   },
 
   // 统计API
+  // tz_offset 为 JS Date.getTimezoneOffset() 语义（分钟，UTC = 本地 + offset），
+  // 供后端把 UTC 时间戳归入客户端本地日期桶
   stats: {
     async getOverview() {
-      return API.request('/stats/overview');
+      return API.request(
+        `/stats/overview?tz_offset=${new Date().getTimezoneOffset()}`
+      );
     },
 
     async getWeekly() {
-      return API.request('/stats/weekly');
+      return API.request(
+        `/stats/weekly?tz_offset=${new Date().getTimezoneOffset()}`
+      );
     },
 
     async getMuscle() {

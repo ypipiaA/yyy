@@ -171,7 +171,9 @@ const Storage = {
   async saveLog(log) {
     if (API.USE_API) {
       try {
-        await API.workouts.create(log);
+        // 回填后端 id，保证后续 deleteLog 能同步删除后端记录
+        const created = await API.workouts.create(log);
+        if (created && created.id) log.id = created.id;
       } catch (e) {
         console.error('保存训练记录失败:', e);
         showToast('后端同步失败，数据已保存在本地');
@@ -221,7 +223,9 @@ const Storage = {
   async addBodyRecord(record) {
     if (API.USE_API) {
       try {
-        await API.body.create(record);
+        // 回填后端 id，保证后续 deleteBodyRecord 能同步删除后端记录
+        const created = await API.body.create(record);
+        if (created && created.id) record.id = created.id;
       } catch (e) {
         console.error('保存身体记录失败:', e);
         showToast('后端同步失败，数据已保存在本地');

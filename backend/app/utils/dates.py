@@ -6,7 +6,7 @@
 - 日期区间一律使用半开区间 [day, day+1)。
 """
 import re
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, Tuple
 
 DATE_RE = r"^\d{4}-\d{2}-\d{2}$"
@@ -28,14 +28,26 @@ def day_range(date_str: Optional[str] = None) -> Tuple[datetime, datetime]:
     return start, start + timedelta(days=1)
 
 
-def parse_client_iso(value: str) -> datetime:
-    """解析客户端 ISO 时间戳（如 ``2026-08-25T12:34:56.000Z``）。
+def parse_client_iso(
+    value: str, tz_offset_minutes: Optional[int] = None
+) -> datetime:
+    """解析客户端 ISO 时间戳（如 ``2026-08-25T12:34:56.000Z``）并换算为客户端本地时间。
 
-    返回 naive datetime（丢弃时区偏移），仅用于服务器端统计聚合；
+    - 带时区信息（Z / ±HH:MM）：先统一到 UTC，再按 tz_offset_minutes
+      （JS ``Date.getTimezoneOffset()`` 语义：UTC = 本地 + offset 分钟，
+      如东八区为 -480）换算为客户端本地时间；未提供 offset 时退化为 UTC。
+    - 无时区信息的 naive 字符串：视为已是客户端本地时间，原样返回。
+
+    返回 naive datetime，仅用于服务器端统计聚合（日期归属）；
     存储层永远保存客户端原始字符串，不做覆盖。
     """
     dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
-    return dt.replace(tzinfo=None)
+    if dt.tzinfo is None:
+        return dt
+    dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
+    if tz_offset_minutes:
+        dt -= timedelta(minutes=tz_offset_minutes)
+    return dt
 
 
 def now_iso() -> str:
