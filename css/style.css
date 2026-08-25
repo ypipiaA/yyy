@@ -1365,3 +1365,156 @@ canvas {
   animation: none !important;
   transition: none !important;
 }
+
+/* ===== C 包新增 ===== */
+
+/* ---- 训练日历热力图（§3.1）---- */
+.heatmap-scroll {
+  overflow-x: auto;
+  padding-bottom: 0.25rem;
+  -webkit-overflow-scrolling: touch;
+}
+
+.heatmap-grid {
+  display: grid;
+  grid-template-rows: repeat(7, 12px);
+  grid-auto-flow: column;
+  grid-auto-columns: 12px;
+  gap: 3px;
+  width: max-content;
+}
+
+.hm-cell {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  background: var(--bg-soft);
+}
+
+.hm-cell[data-level="1"] { background: color-mix(in srgb, var(--primary) 30%, var(--bg-soft)); }
+.hm-cell[data-level="2"] { background: color-mix(in srgb, var(--primary) 50%, var(--bg-soft)); }
+.hm-cell[data-level="3"] { background: color-mix(in srgb, var(--primary) 75%, var(--bg-soft)); }
+.hm-cell[data-level="4"] { background: color-mix(in srgb, var(--primary) 100%, var(--bg-soft)); }
+
+.hm-cell.hm-future { background: transparent; }
+
+.heatmap-legend {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  justify-content: flex-end;
+  margin-top: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+/* ---- PR 摘要（§3.2）---- */
+.pr-summary {
+  display: flex;
+  gap: 0.75rem;
+  margin: 0.75rem 0;
+}
+
+.pr-summary:empty { display: none; }
+
+.pr-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.6rem 0.5rem;
+  background: var(--bg-soft);
+  border-radius: var(--radius);
+}
+
+.pr-value {
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.pr-label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+/* ---- 1RM 计算器（§3.2）---- */
+.orm-result { margin-top: 0.75rem; }
+
+.orm-headline {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--primary);
+  margin-bottom: 0.25rem;
+}
+
+.orm-note {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-bottom: 0.25rem;
+}
+
+.orm-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.orm-table th,
+.orm-table td {
+  padding: 0.4rem 0.5rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+
+.orm-table th {
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+/* ---- 训练模式增强（§3.3）---- */
+.exercise-card.active-exercise {
+  border-left: 4px solid var(--primary);
+}
+
+#start-session.session-active {
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+
+.rest-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(0px + env(safe-area-inset-bottom));
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.12);
+}
+
+.rest-bar.hidden { display: none; }
+
+.rest-bar-label {
+  font-weight: 700;
+  color: var(--text);
+  min-width: 6.5em;
+}
+
+.rest-bar-btn { padding: 0.4rem 0.9rem; }
+
+@keyframes rest-bar-blink {
+  50% { opacity: 0.25; }
+}
+
+.rest-bar-flash {
+  animation: rest-bar-blink 0.3s linear 3;
+}

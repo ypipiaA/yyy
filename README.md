@@ -191,6 +191,11 @@ py -m mypy app/
 - 后端：使用Uvicorn或Gunicorn
 - 数据库：SQLite（生产环境可升级到PostgreSQL）
 
+> **数据库路径变更提示**：默认数据库文件已从 `backend/fittrack.db` 迁移到
+> `backend/data/fittrack.db`（新目录不会被静态挂载暴露），且本版本 schema 有
+> 不兼容变更、无自动迁移。若存在旧库文件，应用启动时会打印警告；如需沿用旧
+> 数据请手动迁移，或通过环境变量 `FITTRACK_DB_PATH` 指定数据库路径。
+
 ## 更新日志
 
 ### v3.0 (2024)

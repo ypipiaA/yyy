@@ -10,15 +10,18 @@ const Stats = {
   },
 
   async refresh() {
-    await this.updateSummary();
-    await this.renderWeeklyChart();
-    await this.renderMuscleChart();
+    // 一次取出全部 logs 传递各子方法（避免重复读取），并驱动热力图/PR 摘要
+    const logs = await Storage.getLogs();
+    await this.updateSummary(logs);
+    Heatmap.render(logs); // 集成点（§3.1）：训练日历热力图
+    await this.renderWeeklyChart(logs);
+    await this.renderMuscleChart(logs);
     await this.updateExerciseSelect();
-    await this.renderProgressChart();
+    await this.renderProgressChart(logs);
   },
 
-  async updateSummary() {
-    const logs = await Storage.getLogs();
+  async updateSummary(logs) {
+    if (!logs) logs = await Storage.getLogs();
     const now = new Date();
     const weekStart = getWeekStart(now);
 
@@ -73,8 +76,8 @@ const Stats = {
     return streak;
   },
 
-  async renderWeeklyChart() {
-    const logs = await Storage.getLogs();
+  async renderWeeklyChart(logs) {
+    if (!logs) logs = await Storage.getLogs();
     const weeks = [];
     const counts = [];
 
@@ -129,8 +132,8 @@ const Stats = {
     });
   },
 
-  async renderMuscleChart() {
-    const logs = await Storage.getLogs();
+  async renderMuscleChart(logs) {
+    if (!logs) logs = await Storage.getLogs();
     const muscleCount = {};
 
     logs.forEach((log) => {
@@ -199,15 +202,20 @@ const Stats = {
     }
   },
 
-  async renderProgressChart() {
+  async renderProgressChart(logs) {
     const exerciseName = this.exerciseSelect.value;
+    if (!logs) logs = await Storage.getLogs();
+
+    // 集成点（§3.2）：动作切换/统计刷新时渲染当前动作的 PR 摘要
+    Records.renderSummary(exerciseName, logs);
+
     if (!exerciseName) return;
 
-    const logs = (await Storage.getLogs()).slice().reverse();
+    const ordered = logs.slice().reverse();
     const labels = [];
     const maxWeights = [];
 
-    logs.forEach((log) => {
+    ordered.forEach((log) => {
       const ex = log.exercises.find((e) => e.name === exerciseName);
       if (!ex) return;
 

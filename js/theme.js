@@ -1,225 +1,153 @@
 /**
  * FitTrack 主题系统模块
  * 支持深色模式、浅色模式、跟随系统、自定义主题
+ *
+ * 变量名与 css/style.css 的 :root / .theme-* 定义一一对应。
+ * 未做显式选择（localStorage 无记录）时不注入内联变量，
+ * 保持 CSS `prefers-color-scheme` 媒体查询的原生行为。
  */
 
-/**
- * 主题配置
- */
 const THEMES = {
   light: {
     name: '浅色模式',
     icon: '☀️',
-    colors: {
-      // 背景色
-      '--bg-primary': '#ffffff',
-      '--bg-secondary': '#f8fafc',
-      '--bg-tertiary': '#f1f5f9',
-      '--bg-card': '#ffffff',
-      '--bg-input': '#f8fafc',
-      
-      // 文字色
-      '--text-primary': '#1e293b',
-      '--text-secondary': '#475569',
-      '--text-muted': '#94a3b8',
-      
-      // 主题色
+    // meta theme-color：浅色用品牌绿
+    metaColor: '#16a34a',
+    vars: {
+      '--bg': '#ffffff',
+      '--bg-soft': '#f4f6fa',
+      '--surface': '#ffffff',
+      '--surface-hover': '#f1f5f9',
+      '--border': '#e6eaf0',
+      '--text': '#1e293b',
+      '--text-muted': '#64748b',
       '--primary': '#16a34a',
-      '--primary-light': '#22c55e',
       '--primary-dark': '#15803d',
-      
-      // 强调色
+      '--primary-soft': 'rgba(22, 163, 74, 0.1)',
       '--accent': '#3b82f6',
-      '--accent-light': '#60a5fa',
-      
-      // 状态色
-      '--success': '#22c55e',
-      '--warning': '#f59e0b',
-      '--danger': '#ef4444',
-      '--info': '#3b82f6',
-      
-      // 边框
-      '--border': '#e2e8f0',
-      '--border-light': '#f1f5f9',
-      
-      // 阴影
-      '--shadow-sm': '0 1px 2px 0 rgb(0 0 0 / 0.05)',
-      '--shadow': '0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)',
-      '--shadow-md': '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)',
-      '--shadow-lg': '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)',
-      
-      // 图表色
-      '--chart-1': '#16a34a',
-      '--chart-2': '#3b82f6',
-      '--chart-3': '#f59e0b',
-      '--chart-4': '#ef4444',
-      '--chart-5': '#8b5cf6',
+      '--danger': '#dc2626',
+      '--warning': '#d97706',
+      '--shadow': '0 1px 3px rgba(15, 23, 42, 0.05), 0 4px 16px rgba(15, 23, 42, 0.06)',
+      '--shadow-lg': '0 12px 40px rgba(15, 23, 42, 0.12)',
     },
   },
-  
+
   dark: {
     name: '深色模式',
     icon: '🌙',
-    colors: {
-      '--bg-primary': '#0f172a',
-      '--bg-secondary': '#1e293b',
-      '--bg-tertiary': '#334155',
-      '--bg-card': '#1e293b',
-      '--bg-input': '#334155',
-      
-      '--text-primary': '#f1f5f9',
-      '--text-secondary': '#cbd5e1',
-      '--text-muted': '#64748b',
-      
-      '--primary': '#22c55e',
-      '--primary-light': '#4ade80',
-      '--primary-dark': '#16a34a',
-      
-      '--accent': '#60a5fa',
-      '--accent-light': '#93c5fd',
-      
-      '--success': '#4ade80',
-      '--warning': '#fbbf24',
-      '--danger': '#f87171',
-      '--info': '#60a5fa',
-      
+    metaColor: '#0f172a',
+    vars: {
+      '--bg': '#0f172a',
+      '--bg-soft': '#1e293b',
+      '--surface': '#1e293b',
+      '--surface-hover': '#334155',
       '--border': '#334155',
-      '--border-light': '#475569',
-      
-      '--shadow-sm': '0 1px 2px 0 rgb(0 0 0 / 0.3)',
-      '--shadow': '0 1px 3px 0 rgb(0 0 0 / 0.4), 0 1px 2px -1px rgb(0 0 0 / 0.3)',
-      '--shadow-md': '0 4px 6px -1px rgb(0 0 0 / 0.4), 0 2px 4px -2px rgb(0 0 0 / 0.3)',
-      '--shadow-lg': '0 10px 15px -3px rgb(0 0 0 / 0.4), 0 4px 6px -4px rgb(0 0 0 / 0.3)',
-      
-      '--chart-1': '#4ade80',
-      '--chart-2': '#60a5fa',
-      '--chart-3': '#fbbf24',
-      '--chart-4': '#f87171',
-      '--chart-5': '#a78bfa',
+      '--text': '#f1f5f9',
+      '--text-muted': '#94a3b8',
+      '--primary': '#22c55e',
+      '--primary-dark': '#16a34a',
+      '--primary-soft': 'rgba(34, 197, 94, 0.1)',
+      '--accent': '#60a5fa',
+      '--danger': '#f87171',
+      '--warning': '#fbbf24',
+      '--shadow': '0 1px 3px rgba(0, 0, 0, 0.2), 0 4px 16px rgba(0, 0, 0, 0.3)',
+      '--shadow-lg': '0 12px 40px rgba(0, 0, 0, 0.4)',
     },
   },
-  
+
   midnight: {
     name: '午夜蓝',
     icon: '🌑',
-    colors: {
-      '--bg-primary': '#0a1929',
-      '--bg-secondary': '#132f4c',
-      '--bg-tertiary': '#1a3a5c',
-      '--bg-card': '#132f4c',
-      '--bg-input': '#1a3a5c',
-      
-      '--text-primary': '#e3f2fd',
-      '--text-secondary': '#90caf9',
-      '--text-muted': '#546e7a',
-      
-      '--primary': '#4caf50',
-      '--primary-light': '#66bb6a',
-      '--primary-dark': '#388e3c',
-      
-      '--accent': '#42a5f5',
-      '--accent-light': '#64b5f6',
-      
-      '--success': '#66bb6a',
-      '--warning': '#ffa726',
-      '--danger': '#ef5350',
-      '--info': '#42a5f5',
-      
+    metaColor: '#0a1929',
+    vars: {
+      '--bg': '#0a1929',
+      '--bg-soft': '#132f4c',
+      '--surface': '#132f4c',
+      '--surface-hover': '#1a3a5c',
       '--border': '#1a3a5c',
-      '--border-light': '#2a4a6c',
-      
-      '--shadow-sm': '0 1px 2px 0 rgb(0 0 0 / 0.4)',
-      '--shadow': '0 1px 3px 0 rgb(0 0 0 / 0.5), 0 1px 2px -1px rgb(0 0 0 / 0.4)',
-      '--shadow-md': '0 4px 6px -1px rgb(0 0 0 / 0.5), 0 2px 4px -2px rgb(0 0 0 / 0.4)',
-      '--shadow-lg': '0 10px 15px -3px rgb(0 0 0 / 0.5), 0 4px 6px -4px rgb(0 0 0 / 0.4)',
-      
-      '--chart-1': '#66bb6a',
-      '--chart-2': '#42a5f5',
-      '--chart-3': '#ffa726',
-      '--chart-4': '#ef5350',
-      '--chart-5': '#ab47bc',
+      '--text': '#e3f2fd',
+      '--text-muted': '#90caf9',
+      '--primary': '#4caf50',
+      '--primary-dark': '#388e3c',
+      '--primary-soft': 'rgba(76, 175, 80, 0.1)',
+      '--accent': '#42a5f5',
+      '--danger': '#ef5350',
+      '--warning': '#ffa726',
+      '--shadow': '0 1px 3px rgba(0, 0, 0, 0.3), 0 4px 16px rgba(0, 0, 0, 0.4)',
+      '--shadow-lg': '0 12px 40px rgba(0, 0, 0, 0.5)',
     },
   },
-  
+
   forest: {
     name: '森林绿',
     icon: '🌲',
-    colors: {
-      '--bg-primary': '#f0fdf4',
-      '--bg-secondary': '#dcfce7',
-      '--bg-tertiary': '#bbf7d0',
-      '--bg-card': '#ffffff',
-      '--bg-input': '#f0fdf4',
-      
-      '--text-primary': '#14532d',
-      '--text-secondary': '#166534',
-      '--text-muted': '#15803d',
-      
-      '--primary': '#15803d',
-      '--primary-light': '#22c55e',
-      '--primary-dark': '#166534',
-      
-      '--accent': '#059669',
-      '--accent-light': '#34d399',
-      
-      '--success': '#22c55e',
-      '--warning': '#eab308',
-      '--danger': '#dc2626',
-      '--info': '#0891b2',
-      
+    metaColor: '#f0fdf4',
+    vars: {
+      '--bg': '#f0fdf4',
+      '--bg-soft': '#dcfce7',
+      '--surface': '#ffffff',
+      '--surface-hover': '#bbf7d0',
       '--border': '#bbf7d0',
-      '--border-light': '#dcfce7',
-      
-      '--shadow-sm': '0 1px 2px 0 rgb(21 128 61 / 0.1)',
-      '--shadow': '0 1px 3px 0 rgb(21 128 61 / 0.15), 0 1px 2px -1px rgb(21 128 61 / 0.1)',
-      '--shadow-md': '0 4px 6px -1px rgb(21 128 61 / 0.15), 0 2px 4px -2px rgb(21 128 61 / 0.1)',
-      '--shadow-lg': '0 10px 15px -3px rgb(21 128 61 / 0.15), 0 4px 6px -4px rgb(21 128 61 / 0.1)',
-      
-      '--chart-1': '#15803d',
-      '--chart-2': '#059669',
-      '--chart-3': '#eab308',
-      '--chart-4': '#dc2626',
-      '--chart-5': '#7c3aed',
+      '--text': '#14532d',
+      '--text-muted': '#166534',
+      '--primary': '#15803d',
+      '--primary-dark': '#166534',
+      '--primary-soft': 'rgba(21, 128, 61, 0.1)',
+      '--accent': '#059669',
+      '--danger': '#dc2626',
+      '--warning': '#eab308',
+      '--shadow': '0 1px 3px rgba(21, 128, 61, 0.1), 0 4px 16px rgba(21, 128, 61, 0.15)',
+      '--shadow-lg': '0 12px 40px rgba(21, 128, 61, 0.2)',
     },
   },
 };
 
+/** 字号档位（类常量） */
+const FONT_SIZES = {
+  small: '14px',
+  medium: '16px',
+  large: '18px',
+  xlarge: '20px',
+};
+
 /**
- * 主题管理器类
+ * 主题控制器
  */
-class ThemeManager {
+class ThemeController {
   constructor() {
     this.currentTheme = 'light';
     this.followSystem = false;
+    // 用户是否做过显式选择；否则不注入内联变量，保持 CSS 原生表现
+    this.hasExplicitChoice = false;
     this.mediaQuery = null;
     this.loadFromStorage();
     this.initSystemListener();
   }
-  
-  /**
-   * 从本地存储加载主题设置
-   */
+
   loadFromStorage() {
     try {
       const savedTheme = localStorage.getItem('fittrack_theme');
       const savedFollowSystem = localStorage.getItem('fittrack_theme_follow_system');
-      
-      if (savedTheme) this.currentTheme = savedTheme;
-      if (savedFollowSystem !== null) this.followSystem = savedFollowSystem === 'true';
-      
+
+      if (savedTheme && THEMES[savedTheme]) {
+        this.currentTheme = savedTheme;
+        this.hasExplicitChoice = true;
+      }
+      if (savedFollowSystem !== null) {
+        this.followSystem = savedFollowSystem === 'true';
+        if (this.followSystem) this.hasExplicitChoice = true;
+      }
+
       if (this.followSystem) {
         this.detectSystemTheme();
       }
-      
+
       this.applyTheme();
     } catch (e) {
       console.error('加载主题设置失败:', e);
     }
   }
-  
-  /**
-   * 保存主题设置到本地存储
-   */
+
   saveToStorage() {
     try {
       localStorage.setItem('fittrack_theme', this.currentTheme);
@@ -228,10 +156,7 @@ class ThemeManager {
       console.error('保存主题设置失败:', e);
     }
   }
-  
-  /**
-   * 初始化系统主题监听
-   */
+
   initSystemListener() {
     if (window.matchMedia) {
       this.mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
@@ -243,10 +168,7 @@ class ThemeManager {
       });
     }
   }
-  
-  /**
-   * 检测系统主题
-   */
+
   detectSystemTheme() {
     if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
       this.currentTheme = 'dark';
@@ -254,57 +176,59 @@ class ThemeManager {
       this.currentTheme = 'light';
     }
   }
-  
-  /**
-   * 应用主题
-   */
+
   applyTheme() {
     const theme = THEMES[this.currentTheme];
     if (!theme) return;
-    
+
     const root = document.documentElement;
-    Object.entries(theme.colors).forEach(([property, value]) => {
+    const applyToBody = () => {
+      if (!document.body) return;
+      document.body.classList.remove('theme-light', 'theme-dark', 'theme-midnight', 'theme-forest');
+      if (this.hasExplicitChoice) {
+        document.body.classList.add(`theme-${this.currentTheme}`);
+      }
+    };
+
+    if (!this.hasExplicitChoice) {
+      // 未显式选择：清掉可能残留的内联变量，交还 CSS 控制
+      Object.keys(theme.vars).forEach((property) => root.style.removeProperty(property));
+      applyToBody();
+      return;
+    }
+
+    Object.entries(theme.vars).forEach(([property, value]) => {
       root.style.setProperty(property, value);
     });
-    
-    // 更新meta主题色
+
     const metaThemeColor = document.querySelector('meta[name="theme-color"]');
     if (metaThemeColor) {
-      metaThemeColor.content = theme.colors['--bg-primary'];
+      metaThemeColor.content = theme.metaColor;
     }
-    
-    // 更新body类
-    document.body.classList.remove('theme-light', 'theme-dark', 'theme-midnight', 'theme-forest');
-    document.body.classList.add(`theme-${this.currentTheme}`);
+
+    applyToBody();
   }
-  
-  /**
-   * 设置主题
-   */
+
   setTheme(themeName) {
     if (THEMES[themeName]) {
       this.currentTheme = themeName;
       this.followSystem = false;
+      this.hasExplicitChoice = true;
       this.applyTheme();
       this.saveToStorage();
     }
   }
-  
-  /**
-   * 设置是否跟随系统
-   */
+
   setFollowSystem(follow) {
     this.followSystem = follow;
+    this.hasExplicitChoice = true;
     if (follow) {
       this.detectSystemTheme();
-      this.applyTheme();
     }
+    this.applyTheme();
     this.saveToStorage();
   }
-  
-  /**
-   * 获取当前主题
-   */
+
   getCurrentTheme() {
     return {
       name: this.currentTheme,
@@ -312,10 +236,7 @@ class ThemeManager {
       followSystem: this.followSystem,
     };
   }
-  
-  /**
-   * 获取所有可用主题
-   */
+
   getAvailableThemes() {
     return Object.entries(THEMES).map(([key, theme]) => ({
       id: key,
@@ -323,10 +244,7 @@ class ThemeManager {
       current: key === this.currentTheme,
     }));
   }
-  
-  /**
-   * 切换主题
-   */
+
   toggleTheme() {
     const themes = Object.keys(THEMES);
     const currentIndex = themes.indexOf(this.currentTheme);
@@ -336,24 +254,24 @@ class ThemeManager {
 }
 
 /**
- * 字体大小管理
+ * 字体大小控制器
  */
-class FontSizeManager {
+class FontSizeController {
   constructor() {
     this.fontSize = 'medium';
     this.loadFromStorage();
   }
-  
+
   loadFromStorage() {
     try {
       const saved = localStorage.getItem('fittrack_font_size');
-      if (saved) this.fontSize = saved;
+      if (saved && FONT_SIZES[saved]) this.fontSize = saved;
       this.applyFontSize();
     } catch (e) {
       console.error('加载字体大小设置失败:', e);
     }
   }
-  
+
   saveToStorage() {
     try {
       localStorage.setItem('fittrack_font_size', this.fontSize);
@@ -361,48 +279,45 @@ class FontSizeManager {
       console.error('保存字体大小设置失败:', e);
     }
   }
-  
+
   applyFontSize() {
-    const sizes = {
-      small: '14px',
-      medium: '16px',
-      large: '18px',
-      xlarge: '20px',
-    };
-    document.documentElement.style.setProperty('--font-size-base', sizes[this.fontSize] || '16px');
+    document.documentElement.style.setProperty(
+      '--font-size-base',
+      FONT_SIZES[this.fontSize] || '16px'
+    );
   }
-  
+
   setFontSize(size) {
-    if (sizes[size] || sizes[size] === 0) {
+    if (FONT_SIZES[size]) {
       this.fontSize = size;
       this.applyFontSize();
       this.saveToStorage();
     }
   }
-  
+
   getFontSize() {
     return this.fontSize;
   }
-  
+
   getAvailableSizes() {
     return [
-      { id: 'small', name: '小', value: '14px' },
-      { id: 'medium', name: '中', value: '16px' },
-      { id: 'large', name: '大', value: '18px' },
-      { id: 'xlarge', name: '特大', value: '20px' },
+      { id: 'small', name: '小', value: FONT_SIZES.small },
+      { id: 'medium', name: '中', value: FONT_SIZES.medium },
+      { id: 'large', name: '大', value: FONT_SIZES.large },
+      { id: 'xlarge', name: '特大', value: FONT_SIZES.xlarge },
     ];
   }
 }
 
 /**
- * 动画管理
+ * 动画控制器
  */
-class AnimationManager {
+class AnimationController {
   constructor() {
     this.enabled = true;
     this.loadFromStorage();
   }
-  
+
   loadFromStorage() {
     try {
       const saved = localStorage.getItem('fittrack_animations');
@@ -412,7 +327,7 @@ class AnimationManager {
       console.error('加载动画设置失败:', e);
     }
   }
-  
+
   saveToStorage() {
     try {
       localStorage.setItem('fittrack_animations', this.enabled.toString());
@@ -420,31 +335,62 @@ class AnimationManager {
       console.error('保存动画设置失败:', e);
     }
   }
-  
+
   applyAnimations() {
-    if (this.enabled) {
-      document.body.classList.remove('no-animations');
+    const apply = () => {
+      if (!document.body) return;
+      if (this.enabled) {
+        document.body.classList.remove('no-animations');
+      } else {
+        document.body.classList.add('no-animations');
+      }
+    };
+    if (document.body) {
+      apply();
     } else {
-      document.body.classList.add('no-animations');
+      document.addEventListener('DOMContentLoaded', apply);
     }
   }
-  
+
   setEnabled(enabled) {
     this.enabled = enabled;
     this.applyAnimations();
     this.saveToStorage();
   }
-  
+
   toggle() {
     this.setEnabled(!this.enabled);
   }
-  
+
   isEnabled() {
     return this.enabled;
   }
 }
 
 // 创建全局实例
-const themeManager = new ThemeManager();
-const fontSizeManager = new FontSizeManager();
-const animationManager = new AnimationManager();
+const themeManager = new ThemeController();
+const fontSizeManager = new FontSizeController();
+const animationManager = new AnimationController();
+
+// body 在脚本执行时已存在（脚本位于 </body> 前），但保险起见等 DOM 就绪后再同步一次主题类
+document.addEventListener('DOMContentLoaded', () => {
+  themeManager.applyTheme();
+  animationManager.applyAnimations();
+});
+
+/**
+ * 统一门面：供设置页与控制台调用
+ * （ThemeManager.setTheme / setFontSize / toggleAnimations 均可安全调用）
+ */
+const ThemeManager = {
+  setTheme: (name) => themeManager.setTheme(name),
+  setFollowSystem: (follow) => themeManager.setFollowSystem(follow),
+  toggleTheme: () => themeManager.toggleTheme(),
+  getCurrentTheme: () => themeManager.getCurrentTheme(),
+  getAvailableThemes: () => themeManager.getAvailableThemes(),
+  setFontSize: (size) => fontSizeManager.setFontSize(size),
+  getFontSize: () => fontSizeManager.getFontSize(),
+  toggleAnimations: () => animationManager.toggle(),
+  setAnimationsEnabled: (enabled) => animationManager.setEnabled(enabled),
+  isAnimationsEnabled: () => animationManager.isEnabled(),
+};

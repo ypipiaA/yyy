@@ -3,6 +3,10 @@
  */
 
 const NutritionUI = {
+  // 当前搜索结果（渲染用 data-index 回查，避免把 JSON 塞进 DOM 属性）
+  filtered: [],
+  _searchTimer: null,
+
   init() {
     this.bindEvents();
     this.loadGoals();
@@ -13,11 +17,31 @@ const NutritionUI = {
     // 添加食物按钮
     document.getElementById('add-food-btn').addEventListener('click', () => {
       document.getElementById('food-search').classList.toggle('hidden');
+      this.hideAddFoodForm();
     });
 
-    // 食物搜索
+    // 食物搜索（150ms debounce）
     document.getElementById('food-search-input').addEventListener('input', (e) => {
-      this.searchFood(e.target.value);
+      clearTimeout(this._searchTimer);
+      this._searchTimer = setTimeout(() => this.searchFood(e.target.value), 150);
+    });
+
+    // 搜索结果点击：容器级事件委托
+    document.getElementById('food-search-results').addEventListener('click', (e) => {
+      const item = e.target.closest('.food-search-item');
+      if (!item) return;
+      const food = this.filtered[parseInt(item.dataset.index)];
+      if (food) this.showAddFoodForm(food);
+    });
+
+    // 今日饮食删除：容器级事件委托
+    document.getElementById('today-meals').addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-delete-meal]');
+      if (!btn) return;
+      const id = parseInt(btn.dataset.deleteMeal);
+      nutritionTracker.deleteMeal(id);
+      this.refresh();
+      showToast('餐次已删除');
     });
 
     // 喝水按钮
@@ -73,8 +97,8 @@ const NutritionUI = {
 
   renderMeals() {
     const container = document.getElementById('today-meals');
-    const today = new Date().toISOString().split('T')[0];
-    const todayMeals = nutritionTracker.meals.filter(m => m.date.startsWith(today));
+    const today = formatDate(new Date());
+    const todayMeals = nutritionTracker.meals.filter(m => formatDate(m.date) === today);
 
     if (todayMeals.length === 0) {
       container.innerHTML = '<p class="empty-state">今天还没有记录饮食</p>';
@@ -84,15 +108,15 @@ const NutritionUI = {
     container.innerHTML = todayMeals.map(meal => `
       <div class="meal-item">
         <div class="meal-header">
-          <span class="meal-name">${meal.name || '未命名餐次'}</span>
+          <span class="meal-name">${escapeHtml(meal.name || '未命名餐次')}</span>
           <span class="meal-time">${new Date(meal.date).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}</span>
-          <button class="btn-icon btn-danger-icon" data-delete-meal="${meal.id}">✕</button>
+          <button class="btn-icon btn-danger-icon" data-delete-meal="${Number(meal.id)}" aria-label="删除餐次">✕</button>
         </div>
         <div class="meal-foods">
           ${meal.foods.map(food => `
             <div class="food-item">
-              <span class="food-name">${food.name}</span>
-              <span class="food-amount">${food.amount}g</span>
+              <span class="food-name">${escapeHtml(food.name)}</span>
+              <span class="food-amount">${Number(food.amount)}g</span>
               <span class="food-calories">${Math.round(food.calories * food.amount / 100)} 千卡</span>
             </div>
           `).join('')}
@@ -104,16 +128,6 @@ const NutritionUI = {
         </div>
       </div>
     `).join('');
-
-    // 绑定删除事件
-    container.querySelectorAll('[data-delete-meal]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const id = parseInt(btn.dataset.deleteMeal);
-        nutritionTracker.deleteMeal(id);
-        this.refresh();
-        showToast('餐次已删除');
-      });
-    });
   },
 
   calculateMealNutrient(meal, nutrient) {
@@ -124,60 +138,127 @@ const NutritionUI = {
 
   searchFood(query) {
     const resultsContainer = document.getElementById('food-search-results');
-    
+    this.hideAddFoodForm();
+
     if (query.length < 1) {
+      this.filtered = [];
       resultsContainer.innerHTML = '';
       return;
     }
 
-    const results = nutritionTracker.searchFood(query);
-    
-    if (results.length === 0) {
+    this.filtered = nutritionTracker.searchFood(query);
+
+    if (this.filtered.length === 0) {
       resultsContainer.innerHTML = '<p class="empty-state">未找到匹配的食物</p>';
       return;
     }
 
-    resultsContainer.innerHTML = results.map(food => `
-      <div class="food-search-item" data-food='${JSON.stringify(food)}'>
-        <span class="food-name">${food.name}</span>
-        <span class="food-info">${food.calories}千卡/100g</span>
-        <span class="food-category">${food.category}</span>
+    resultsContainer.innerHTML = this.filtered.map((food, i) => `
+      <div class="food-search-item" data-index="${i}">
+        <span class="food-name">${escapeHtml(food.name)}</span>
+        <span class="food-info">${Number(food.calories)}千卡/100g</span>
+        <span class="food-category">${escapeHtml(food.category)}</span>
       </div>
     `).join('');
-
-    resultsContainer.querySelectorAll('.food-search-item').forEach(item => {
-      item.addEventListener('click', () => {
-        const food = JSON.parse(item.dataset.food);
-        this.showAddFoodModal(food);
-      });
-    });
   },
 
-  showAddFoodModal(food) {
-    const amount = prompt(`添加 ${food.name}\n请输入克数（每100g含${food.calories}千卡）:`, '100');
-    
-    if (amount === null) return;
-    
-    const amountNum = parseInt(amount);
-    if (isNaN(amountNum) || amountNum <= 0) {
-      showToast('请输入有效的克数');
-      return;
-    }
+  /**
+   * 内联添加表单（替代 prompt/confirm 流程）
+   */
+  showAddFoodForm(food) {
+    this.hideAddFoodForm();
+    const searchBox = document.getElementById('food-search');
 
-    const mealName = prompt('餐次名称（如：早餐、午餐、晚餐）:', '正餐');
-    
+    const form = document.createElement('div');
+    form.className = 'food-add-form';
+    form.id = 'food-add-form';
+
+    const title = document.createElement('div');
+    title.className = 'food-add-title';
+    title.textContent = `添加「${food.name}」（每100g含${food.calories}千卡）`;
+    form.appendChild(title);
+
+    const row = document.createElement('div');
+    row.className = 'food-add-row';
+
+    const amountLabel = document.createElement('label');
+    amountLabel.textContent = '克数';
+    const amountInput = document.createElement('input');
+    amountInput.type = 'number';
+    amountInput.id = 'food-add-amount';
+    amountInput.setAttribute('inputmode', 'numeric');
+    amountInput.min = '1';
+    amountInput.max = '2000';
+    amountInput.value = '100';
+    amountLabel.appendChild(amountInput);
+    row.appendChild(amountLabel);
+
+    const mealLabel = document.createElement('label');
+    mealLabel.textContent = '餐次';
+    const mealSelect = document.createElement('select');
+    mealSelect.id = 'food-add-meal';
+    ['早餐', '午餐', '晚餐', '正餐', '加餐'].forEach((name) => {
+      const opt = document.createElement('option');
+      opt.value = name;
+      opt.textContent = name;
+      if (name === '正餐') opt.selected = true;
+      mealSelect.appendChild(opt);
+    });
+    mealLabel.appendChild(mealSelect);
+    row.appendChild(mealLabel);
+
+    form.appendChild(row);
+
+    const actions = document.createElement('div');
+    actions.className = 'food-add-actions';
+
+    const confirmBtn = document.createElement('button');
+    confirmBtn.type = 'button';
+    confirmBtn.className = 'btn btn-primary';
+    confirmBtn.textContent = '确认添加';
+    confirmBtn.addEventListener('click', () => {
+      const amountNum = parseInt(amountInput.value);
+      if (isNaN(amountNum) || amountNum <= 0) {
+        showToast('请输入有效的克数');
+        return;
+      }
+      this.addFood(food, amountNum, mealSelect.value);
+    });
+    actions.appendChild(confirmBtn);
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.type = 'button';
+    cancelBtn.className = 'btn btn-secondary';
+    cancelBtn.textContent = '取消';
+    cancelBtn.addEventListener('click', () => this.hideAddFoodForm());
+    actions.appendChild(cancelBtn);
+
+    form.appendChild(actions);
+    searchBox.appendChild(form);
+    amountInput.focus();
+    amountInput.select();
+  },
+
+  hideAddFoodForm() {
+    const form = document.getElementById('food-add-form');
+    if (form) form.remove();
+  },
+
+  addFood(food, amount, mealName) {
     nutritionTracker.addMeal({
       name: mealName || '正餐',
       foods: [{
         ...food,
-        amount: amountNum,
+        amount,
       }],
     });
 
     document.getElementById('food-search-input').value = '';
     document.getElementById('food-search-results').innerHTML = '';
+    this.filtered = [];
+    this.hideAddFoodForm();
     document.getElementById('food-search').classList.add('hidden');
-    
+
     this.refresh();
     showToast('食物已添加');
   },
@@ -191,14 +272,14 @@ const NutritionUI = {
   updateWater() {
     const current = nutritionTracker.getTodayWater();
     const goal = nutritionTracker.goals.water;
-    
+
     document.getElementById('water-current').textContent = current;
     document.getElementById('water-goal').textContent = goal;
   },
 
   loadGoals() {
     const goals = nutritionTracker.goals;
-    
+
     document.getElementById('goal-calories').value = goals.calories;
     document.getElementById('goal-protein').value = goals.protein;
     document.getElementById('goal-carbs').value = goals.carbs;
