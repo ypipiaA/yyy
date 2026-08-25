@@ -75,7 +75,7 @@ class FrontendStaticFiles(StaticFiles):
     _blocked_suffixes = (".py", ".db", ".sqlite", ".sqlite3", ".toml")
 
     async def get_response(self, path: str, scope: Any) -> Any:
-        first_segment = path.split("/", 1)[0].lower()
+        first_segment = path.lstrip("/").split("/", 1)[0].lower()
         if (
             first_segment in self._blocked_dirs
             or path.lower().endswith(self._blocked_suffixes)

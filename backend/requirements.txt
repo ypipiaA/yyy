@@ -1,4 +1,4 @@
-# 与 pyproject.toml [project.dependencies] 保持一致（以 pyproject 为准）
+# Kept in sync with pyproject.toml [project.dependencies] (pyproject is the source of truth)
 fastapi>=0.100.0
 uvicorn[standard]>=0.23.0
 sqlalchemy>=2.0.0

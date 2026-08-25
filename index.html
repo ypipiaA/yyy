@@ -2,14 +2,14 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="theme-color" content="#16a34a">
   <meta name="description" content="FitTrack - 你的私人健身助手，支持训练计划、训练记录、营养追踪、成就系统">
   <title>FitTrack - 健身助手</title>
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icons/icon-192x192.png">
   <link rel="stylesheet" href="css/style.css">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="js/vendor/chart.umd.min.js"></script>
 </head>
 <body>
   <div class="app">
@@ -21,20 +21,20 @@
       <p class="header-sub" id="header-sub">你的私人健身助手</p>
     </header>
 
-    <nav class="nav">
-      <button class="nav-btn active" data-tab="plan">📋 计划</button>
-      <button class="nav-btn" data-tab="workout">🏋️ 训练</button>
-      <button class="nav-btn" data-tab="timer">⏱️ 计时</button>
-      <button class="nav-btn" data-tab="nutrition">🥗 营养</button>
-      <button class="nav-btn" data-tab="stats">📈 统计</button>
-      <button class="nav-btn" data-tab="body">⚖️ 身体</button>
-      <button class="nav-btn" data-tab="achievements">🏆 成就</button>
-      <button class="nav-btn" data-tab="settings">⚙️ 设置</button>
+    <nav class="nav" role="tablist">
+      <button class="nav-btn active" role="tab" data-tab="plan">📋 计划</button>
+      <button class="nav-btn" role="tab" data-tab="workout">🏋️ 训练</button>
+      <button class="nav-btn" role="tab" data-tab="timer">⏱️ 计时</button>
+      <button class="nav-btn" role="tab" data-tab="nutrition">🥗 营养</button>
+      <button class="nav-btn" role="tab" data-tab="stats">📈 统计</button>
+      <button class="nav-btn" role="tab" data-tab="body">⚖️ 身体</button>
+      <button class="nav-btn" role="tab" data-tab="achievements">🏆 成就</button>
+      <button class="nav-btn" role="tab" data-tab="settings">⚙️ 设置</button>
     </nav>
 
     <main class="main">
       <!-- 训练计划 -->
-      <section id="tab-plan" class="tab active">
+      <section id="tab-plan" class="tab active" role="tabpanel">
         <div class="card">
           <h2>生成训练计划</h2>
           <form id="plan-form" class="form">
@@ -89,13 +89,14 @@
       </section>
 
       <!-- 开始训练 -->
-      <section id="tab-workout" class="tab">
+      <section id="tab-workout" class="tab" role="tabpanel">
         <div class="card">
           <h2>今日训练</h2>
           <div id="workout-empty" class="empty-state">
             <p>请先在「训练计划」中生成并保存计划</p>
           </div>
           <div id="workout-content" class="hidden">
+            <button id="start-session" class="btn btn-primary" style="width:100%; margin-bottom:0.75rem;">▶ 开始训练</button>
             <div class="workout-timer">
               <span>⏱️ 训练计时</span>
               <span class="workout-timer-display" id="workout-timer-display">00:00</span>
@@ -116,7 +117,7 @@
       </section>
 
       <!-- 休息计时 -->
-      <section id="tab-timer" class="tab">
+      <section id="tab-timer" class="tab" role="tabpanel">
         <div class="card timer-card">
           <h2>休息计时器</h2>
           <div class="timer-circle">
@@ -134,7 +135,7 @@
           </div>
           <label class="timer-custom">
             自定义（秒）
-            <input type="number" id="timer-custom" min="10" max="600" value="90">
+            <input type="number" id="timer-custom" inputmode="numeric" min="10" max="600" value="90">
           </label>
           <div class="timer-controls">
             <button id="timer-add" class="btn btn-secondary">+30秒</button>
@@ -146,7 +147,7 @@
       </section>
 
       <!-- 进度统计 -->
-      <section id="tab-stats" class="tab">
+      <section id="tab-stats" class="tab" role="tabpanel">
         <div class="stats-grid">
           <div class="stat-card">
             <span class="stat-icon">🏆</span>
@@ -181,6 +182,12 @@
         </div>
 
         <div class="card">
+          <h2>训练日历</h2>
+          <div id="workout-heatmap" class="heatmap-scroll"></div>
+          <div class="heatmap-legend">少 <span class="hm-cell" data-level="0"></span><span class="hm-cell" data-level="1"></span><span class="hm-cell" data-level="2"></span><span class="hm-cell" data-level="3"></span><span class="hm-cell" data-level="4"></span> 多</div>
+        </div>
+
+        <div class="card">
           <h2>每周训练频率</h2>
           <canvas id="chart-weekly"></canvas>
         </div>
@@ -196,12 +203,25 @@
             选择动作
             <select id="chart-exercise"></select>
           </label>
+          <div id="pr-summary" class="pr-summary"></div>
           <canvas id="chart-progress"></canvas>
+        </div>
+
+        <div class="card">
+          <h2>1RM 计算器</h2>
+          <form id="orm-form" class="form">
+            <div class="form-row">
+              <label>重量 (kg)<input type="number" id="orm-weight" inputmode="decimal" min="1" max="500" step="0.5" required></label>
+              <label>次数<input type="number" id="orm-reps" inputmode="numeric" min="1" max="20" required></label>
+            </div>
+            <button type="submit" class="btn btn-primary">计算</button>
+          </form>
+          <div id="orm-result" class="orm-result"></div>
         </div>
       </section>
 
       <!-- 身体数据 -->
-      <section id="tab-body" class="tab">
+      <section id="tab-body" class="tab" role="tabpanel">
         <div class="card">
           <h2>记录体重</h2>
           <form id="body-form" class="form">
@@ -212,7 +232,7 @@
               </label>
               <label>
                 体重 (kg)
-                <input type="number" id="body-weight" step="0.1" min="20" max="300" placeholder="如 65.5" required>
+                <input type="number" id="body-weight" inputmode="decimal" step="0.1" min="20" max="300" placeholder="如 65.5" required>
               </label>
             </div>
             <button type="submit" class="btn btn-primary">记录体重</button>
@@ -254,7 +274,7 @@
       </section>
 
       <!-- 营养追踪 -->
-      <section id="tab-nutrition" class="tab">
+      <section id="tab-nutrition" class="tab" role="tabpanel">
         <div class="card">
           <h2>今日营养摄入</h2>
           <div class="nutrition-summary">
@@ -348,21 +368,21 @@
             <div class="form-row">
               <label>
                 每日热量 (千卡)
-                <input type="number" id="goal-calories" min="1000" max="5000" step="50">
+                <input type="number" id="goal-calories" inputmode="numeric" min="1000" max="5000" step="50">
               </label>
               <label>
                 蛋白质 (g)
-                <input type="number" id="goal-protein" min="50" max="300" step="5">
+                <input type="number" id="goal-protein" inputmode="numeric" min="50" max="300" step="5">
               </label>
             </div>
             <div class="form-row">
               <label>
                 碳水 (g)
-                <input type="number" id="goal-carbs" min="50" max="500" step="5">
+                <input type="number" id="goal-carbs" inputmode="numeric" min="50" max="500" step="5">
               </label>
               <label>
                 脂肪 (g)
-                <input type="number" id="goal-fat" min="20" max="200" step="5">
+                <input type="number" id="goal-fat" inputmode="numeric" min="20" max="200" step="5">
               </label>
             </div>
             <button type="submit" class="btn btn-primary">保存目标</button>
@@ -371,7 +391,7 @@
       </section>
 
       <!-- 成就系统 -->
-      <section id="tab-achievements" class="tab">
+      <section id="tab-achievements" class="tab" role="tabpanel">
         <div class="card">
           <h2>成就概览</h2>
           <div class="achievements-stats">
@@ -405,7 +425,7 @@
       </section>
 
       <!-- 设置 -->
-      <section id="tab-settings" class="tab">
+      <section id="tab-settings" class="tab" role="tabpanel">
         <div class="card">
           <h2>个人资料</h2>
           <form id="profile-form" class="form">
@@ -415,10 +435,22 @@
             </label>
             <label>
               身高 (cm)
-              <input type="number" id="profile-height" step="0.5" min="80" max="250" placeholder="如 175">
+              <input type="number" id="profile-height" inputmode="decimal" step="0.5" min="80" max="250" placeholder="如 175">
             </label>
             <button type="submit" class="btn btn-primary">保存资料</button>
           </form>
+        </div>
+
+        <div class="card">
+          <h2>外观</h2>
+          <div class="theme-switcher" id="theme-switcher"></div>
+          <label>字号
+            <select id="font-size-select">
+              <option value="small">小</option><option value="medium" selected>中</option>
+              <option value="large">大</option><option value="xlarge">特大</option>
+            </select>
+          </label>
+          <label class="switch-label"><input type="checkbox" id="animations-toggle" checked> 界面动画</label>
         </div>
 
         <div class="card">
@@ -436,7 +468,7 @@
           <div class="about-logo">
             <span class="logo">💪</span>
             <div class="about-title">FitTrack 健身助手</div>
-            <div class="about-version">v2.0 · 纯前端 · 数据本地存储</div>
+            <div class="about-version">v3.1 · 纯前端 · 数据本地存储</div>
           </div>
           <p class="setting-desc" style="text-align:center;">
             支持训练计划、训练记录、休息计时、进度统计、身体数据追踪与数据备份
@@ -446,11 +478,15 @@
     </main>
   </div>
 
+  <div id="rest-bar" class="rest-bar hidden" role="timer" aria-live="polite"></div>
+
   <script src="js/api.js"></script>
   <script src="js/exercises.js"></script>
   <script src="js/plans.js"></script>
   <script src="js/storage.js"></script>
   <script src="js/timer.js"></script>
+  <script src="js/records.js"></script>
+  <script src="js/heatmap.js"></script>
   <script src="js/stats.js"></script>
   <script src="js/body.js"></script>
   <script src="js/nutrition.js"></script>
@@ -459,6 +495,7 @@
   <script src="js/achievements-ui.js"></script>
   <script src="js/theme.js"></script>
   <script src="js/settings.js"></script>
+  <script src="js/workout-session.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>
