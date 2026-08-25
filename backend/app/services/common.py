@@ -7,7 +7,7 @@
   最近一次训练在今天或昨天均可起算（昨天有训练、今天还没练时 streak 不归零）。
 """
 from datetime import date as date_cls
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from sqlalchemy import func
@@ -60,8 +60,12 @@ def workout_summary(db: Session) -> dict:
     base = db.query(Workout).filter(Workout.user_id == DEFAULT_USER_ID)
     total = base.count()
 
-    # ISO 字符串按字典序即时间序，可直接比较
-    week_ago = (datetime.now() - timedelta(days=7)).strftime("%Y-%m-%dT%H:%M:%S")
+    # ISO 字符串按字典序即时间序——仅在同一时区表示内成立。
+    # 存储的是客户端 UTC-Z 串（如 2026-08-18T02:30:00.000Z），
+    # 故窗口边界也必须用 UTC 生成，不能用服务器本地时间。
+    week_ago = (
+        datetime.now(timezone.utc) - timedelta(days=7)
+    ).strftime("%Y-%m-%dT%H:%M:%S")
     week_count = base.filter(Workout.date >= week_ago).count()
 
     total_volume = (
@@ -79,8 +83,14 @@ def workout_summary(db: Session) -> dict:
     }
 
 
-def workout_days(db: Session) -> set:
-    """该用户所有训练发生的日期集合（set[date]）。"""
+def workout_days(
+    db: Session, tz_offset_minutes: Optional[int] = None
+) -> set:
+    """该用户所有训练发生的日期集合（set[date]）。
+
+    tz_offset_minutes 为客户端时区偏移（JS getTimezoneOffset 语义），
+    用于把 UTC 时间戳归入客户端本地日期桶（对齐前端 formatDate 的本地日语义）。
+    """
     rows = (
         db.query(Workout.date).filter(Workout.user_id == DEFAULT_USER_ID).all()
     )
@@ -89,18 +99,23 @@ def workout_days(db: Session) -> set:
         if not raw:
             continue
         try:
-            days.add(parse_client_iso(raw).date())
+            days.add(parse_client_iso(raw, tz_offset_minutes).date())
         except ValueError:
             continue
     return days
 
 
-def calculate_streak(db: Session, anchor: Optional[date_cls] = None) -> int:
+def calculate_streak(
+    db: Session,
+    anchor: Optional[date_cls] = None,
+    tz_offset_minutes: Optional[int] = None,
+) -> int:
     """连续训练天数。anchor 为客户端“今天”（缺省用服务器本地今天）。
 
     今天没练但昨天练过时，从昨天起算，不归零。
+    日期归属与 workout_days 一致：按客户端本地日（tz_offset_minutes）。
     """
-    days = workout_days(db)
+    days = workout_days(db, tz_offset_minutes)
     if not days:
         return 0
     today = anchor or datetime.now().date()

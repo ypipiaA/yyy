@@ -14,8 +14,6 @@ from ..services.common import get_or_create_settings, get_or_create_user
 
 router = APIRouter()
 
-THEME_WHITELIST = ("light", "dark", "midnight", "forest", "auto")
-
 
 class ProfileUpdate(BaseModel):
     name: str = Field(default="", max_length=50)

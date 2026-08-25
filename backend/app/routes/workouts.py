@@ -114,12 +114,15 @@ def _get_workout_or_404(db: Session, workout_id: int) -> Workout:
 @router.get("/", response_model=List[WorkoutResponse])
 def get_workouts(
     skip: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=500),
+    limit: int = Query(50, ge=0, le=500),
     date_from: Optional[str] = Query(None, pattern=DATE_RE),
     date_to: Optional[str] = Query(None, pattern=DATE_RE),
     db: Session = Depends(get_db),
 ) -> list:
-    """训练记录列表（最新在前）。date_from/date_to 为客户端本地日期，闭区间。"""
+    """训练记录列表（最新在前）。date_from/date_to 为客户端本地日期，闭区间。
+
+    limit=0 表示不分页返回全量（前端统计/成就/streak 依赖完整 logs）。
+    """
     query = db.query(Workout).filter(Workout.user_id == DEFAULT_USER_ID)
     # ISO 字符串按字典序即时间序：[date_from, date_to+1) 半开区间
     if date_from:
@@ -129,10 +132,10 @@ def get_workouts(
             datetime.strptime(date_to, "%Y-%m-%d") + timedelta(days=1)
         ).strftime("%Y-%m-%d")
         query = query.filter(Workout.date < end)
-    workouts = (
-        query.order_by(Workout.date.desc()).offset(skip).limit(limit).all()
-    )
-    return [_workout_to_dict(w) for w in workouts]
+    query = query.order_by(Workout.date.desc()).offset(skip)
+    if limit > 0:
+        query = query.limit(limit)
+    return [_workout_to_dict(w) for w in query.all()]
 
 
 # 注意：/stats/summary 必须先于 /{workout_id} 注册

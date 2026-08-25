@@ -29,6 +29,12 @@ def _anchor_date(date_str: Optional[str]) -> datetime:
 @router.get("/overview")
 def get_stats_overview(
     date: Optional[str] = Query(None, pattern=DATE_RE),
+    tz_offset: Optional[int] = Query(
+        None,
+        ge=-840,
+        le=840,
+        description="客户端时区偏移（分钟，JS getTimezoneOffset 语义）",
+    ),
     db: Session = Depends(get_db),
 ) -> dict:
     summary = workout_summary(db)
@@ -54,7 +60,7 @@ def get_stats_overview(
     )
 
     anchor = _anchor_date(date).date()
-    streak = calculate_streak(db, anchor)
+    streak = calculate_streak(db, anchor, tz_offset)
 
     return {
         "total_workouts": summary["total"],
@@ -69,9 +75,18 @@ def get_stats_overview(
 @router.get("/weekly")
 def get_weekly_stats(
     date: Optional[str] = Query(None, pattern=DATE_RE),
+    tz_offset: Optional[int] = Query(
+        None,
+        ge=-840,
+        le=840,
+        description="客户端时区偏移（分钟，JS getTimezoneOffset 语义）",
+    ),
     db: Session = Depends(get_db),
 ) -> list:
-    """以锚点日期（缺省服务器本地今天）为末日的最近 7 天训练次数。"""
+    """以锚点日期（缺省服务器本地今天）为末日的最近 7 天训练次数。
+
+    日期归属按客户端本地日（tz_offset），与前端 formatDate 语义一致。
+    """
     anchor = _anchor_date(date).date()
 
     counts: dict = {}
@@ -80,7 +95,7 @@ def get_weekly_stats(
         if not raw:
             continue
         try:
-            day = parse_client_iso(raw).date()
+            day = parse_client_iso(raw, tz_offset).date()
         except ValueError:
             continue
         counts[day] = counts.get(day, 0) + 1
