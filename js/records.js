@@ -55,10 +55,12 @@ const Records = {
 
   /**
    * 从 logs 全量计算 PR 映射：
-   * { 动作名: { bestWeight, best1RM, bestVolumeSet: {weight, reps}, date, history: false } }
+   * { 动作名: { bestWeight, best1RM, bestVolumeSet: {weight, reps}, date } }
+   * date 语义：最近一次刷新任一纪录（最大重量或估算 1RM）的日期。
+   * 使用 Object.create(null) 承载用户可控键名（动作名可能为 __proto__ 等）。
    */
   computeAll(logs) {
-    const prs = {};
+    const prs = Object.create(null);
     (logs || []).forEach((log) => {
       if (!log || !Array.isArray(log.exercises)) return;
       const day = log.date ? formatDate(log.date) : '';
@@ -78,11 +80,13 @@ const Records = {
               best1RM: orm,
               bestVolumeSet: { weight, reps },
               date: day,
-              history: false,
             };
             return;
           }
-          if (weight > entry.bestWeight) entry.bestWeight = weight;
+          if (weight > entry.bestWeight) {
+            entry.bestWeight = weight;
+            entry.date = day;
+          }
           if (orm > entry.best1RM) {
             entry.best1RM = orm;
             entry.date = day;
@@ -115,7 +119,10 @@ const Records = {
     if (log && Array.isArray(log.exercises)) {
       log.exercises.forEach((ex) => {
         if (!ex || !ex.name || !Array.isArray(ex.sets)) return;
-        const prev = cached[ex.name];
+        // hasOwnProperty 防护：动作名可能命中原型链成员（如 __proto__）
+        const prev = Object.prototype.hasOwnProperty.call(cached, ex.name)
+          ? cached[ex.name]
+          : null;
         if (!prev) return;
 
         let bestNewWeight = 0;
