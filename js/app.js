@@ -179,7 +179,10 @@ async function initWorkout() {
   }
 
   // 用属性赋值（而非 addEventListener）避免多次 initWorkout 造成监听器累积
-  daySelect.onchange = renderExercises;
+  daySelect.onchange = () => {
+    WorkoutSession.reset(); // 切换训练日：收起 rest-bar、清除高亮、按钮复位（§3.3-5）
+    renderExercises();
+  };
 
   // 事件委托：加一组按钮
   exerciseList.onclick = (e) => {
@@ -212,6 +215,9 @@ async function initWorkout() {
 
   await renderExercises();
 
+  // 集成点（§3.3）：引导模式绑定（开始按钮、组间倒计时、当前动作高亮）
+  WorkoutSession.bind(exerciseList, () => currentPlan, daySelect);
+
   finishBtn.onclick = async () => {
     const dayIndex = parseInt(daySelect.value);
     const day = currentPlan.planDays[dayIndex];
@@ -243,17 +249,23 @@ async function initWorkout() {
 
     stopWorkoutTimer();
 
-    await Storage.saveLog({
+    const log = {
       date: new Date().toISOString(),
       dayName: day.name,
       focus: day.focus,
       duration: workoutSeconds,
       exercises,
-    });
+    };
+    await Storage.saveLog(log);
 
     // 计时归零，不自动重启（下次首次勾选时再计时）
     workoutSeconds = 0;
     updateWorkoutTimerDisplay();
+
+    // 集成点（§3.2）：与 PR 缓存比对，破纪录时 toast 提示并 rebuild
+    await Records.checkNewPRs(log);
+    // 集成点（§3.3-5）：完成训练后复位引导模式
+    WorkoutSession.reset();
 
     showToast('训练记录已保存！');
     renderHistory();
@@ -394,6 +406,8 @@ async function renderHistory() {
       const i = parseInt(deleteBtn.dataset.delete);
       if (confirm('确定删除这条训练记录吗？')) {
         await Storage.deleteLog(i);
+        // 集成点（§3.2）：删除记录后全量重建 PR 缓存（PR 回落）
+        Records.rebuild(await Storage.getLogs());
         showToast('记录已删除');
         renderHistory();
         Stats.refresh();
@@ -418,6 +432,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   initPlan();
   await initWorkout();
   Timer.init();
+  Records.initCalculator(); // 集成点（§3.2）：1RM 计算器表单接管 submit
   Stats.init();
   Body.init();
   NutritionUI.init();

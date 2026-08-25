@@ -106,6 +106,8 @@ const Settings = {
           );
           return;
         }
+        // 集成点（§3.2）：导入成功后全量重建 PR 缓存，避免残留旧纪录
+        Records.rebuild(await Storage.getLogs());
         if (result.skipped.length > 0) {
           showToast(`数据已导入，但 ${result.skipped.join('、')} 格式不正确，已跳过`);
         } else {
