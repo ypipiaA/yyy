@@ -1,9 +1,14 @@
 /**
  * FitTrack Service Worker
- * 支持离线使用和缓存策略
+ * 双缓存策略：预缓存（版本化）+ 运行时缓存
+ * - 导航请求：network-first，失败回退 index.html
+ * - /api/ 请求：不拦截（network-only）
+ * - 静态资源（含跨域 CDN）：cache-first，未命中写入 runtime 缓存
  */
 
-const CACHE_NAME = 'fittrack-v2';
+const PRECACHE_NAME = 'fittrack-precache-v3';
+const RUNTIME_NAME = 'fittrack-runtime';
+
 const urlsToCache = [
   './',
   './index.html',
@@ -22,119 +27,87 @@ const urlsToCache = [
   './js/achievements-ui.js',
   './js/theme.js',
   './js/settings.js',
+  './js/vendor/chart.umd.min.js',
   './manifest.json',
   './icons/icon-72x72.png',
   './icons/icon-192x192.png',
   './icons/icon-512x512.png',
 ];
 
-// 安装事件
+// 安装：预缓存失败必须导致安装失败（不吞错），避免"半缓存"假象
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then((cache) => {
-        console.log('Opened cache');
-        return cache.addAll(urlsToCache);
-      })
-      .catch((error) => {
-        console.error('Failed to cache:', error);
-      })
+    caches.open(PRECACHE_NAME).then((cache) => cache.addAll(urlsToCache))
   );
 });
 
-// 激活事件
+// 激活：只清理非当前 precache 且非 runtime 的旧缓存
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames.map((cacheName) => {
-          if (cacheName !== CACHE_NAME) {
-            console.log('Deleting old cache:', cacheName);
-            return caches.delete(cacheName);
+    caches
+      .keys()
+      .then((cacheNames) =>
+        Promise.all(
+          cacheNames
+            .filter((name) => name !== PRECACHE_NAME && name !== RUNTIME_NAME)
+            .map((name) => caches.delete(name))
+        )
+      )
+      .then(() => self.clients.claim())
+  );
+});
+
+function offlineResponse() {
+  return new Response('', { status: 503, statusText: 'offline' });
+}
+
+self.addEventListener('fetch', (event) => {
+  const request = event.request;
+
+  // 非 GET 请求直接放行（不 respondWith）
+  if (request.method !== 'GET') return;
+
+  // API 请求不拦截（network-only）
+  const url = new URL(request.url);
+  if (url.pathname.includes('/api/')) return;
+
+  // 导航请求：network-first，离线回退 index.html
+  if (request.mode === 'navigate') {
+    event.respondWith(
+      fetch(request).catch(() =>
+        caches.match('./index.html').then((cached) => cached || offlineResponse())
+      )
+    );
+    return;
+  }
+
+  // 其余静态资源：cache-first，未命中 fetch 后写入 runtime 缓存
+  event.respondWith(
+    caches.match(request).then((cached) => {
+      if (cached) return cached;
+      return fetch(request)
+        .then((response) => {
+          // 允许 basic 与 cors 响应写缓存；opaque 不缓存直接透传
+          if (
+            response &&
+            response.status === 200 &&
+            (response.type === 'basic' || response.type === 'cors')
+          ) {
+            const responseToCache = response.clone();
+            caches
+              .open(RUNTIME_NAME)
+              .then((cache) => cache.put(request, responseToCache));
           }
+          return response;
         })
-      );
+        .catch(() => offlineResponse());
     })
   );
 });
 
-// 请求事件 - 网络优先策略
-self.addEventListener('fetch', (event) => {
-  event.respondWith(
-    fetch(event.request)
-      .then((response) => {
-        // 如果是有效的响应，克隆并缓存
-        if (response && response.status === 200 && response.type === 'basic') {
-          const responseToCache = response.clone();
-          caches.open(CACHE_NAME)
-            .then((cache) => {
-              cache.put(event.request, responseToCache);
-            });
-        }
-        return response;
-      })
-      .catch(() => {
-        // 网络失败时使用缓存
-        return caches.match(event.request)
-          .then((response) => {
-            if (response) {
-              return response;
-            }
-            // 如果缓存中也没有，返回离线页面
-            if (event.request.destination === 'document') {
-              return caches.match('./index.html');
-            }
-          });
-      })
-  );
-});
-
-// 后台同步
-self.addEventListener('sync', (event) => {
-  if (event.tag === 'sync-data') {
-    event.waitUntil(syncData());
-  }
-});
-
-// 数据同步函数
-async function syncData() {
-  try {
-    // 这里可以实现与后端的数据同步逻辑
-    console.log('Syncing data...');
-  } catch (error) {
-    console.error('Sync failed:', error);
-  }
-}
-
-// 推送通知
-self.addEventListener('push', (event) => {
-  const options = {
-    body: event.data ? event.data.text() : '你有新的训练提醒',
-    icon: './icons/icon-192x192.png',
-    badge: './icons/icon-72x72.png',
-    vibrate: [100, 50, 100],
-    data: {
-      dateOfArrival: Date.now(),
-      primaryKey: 1,
-    },
-    actions: [
-      { action: 'explore', title: '查看详情', icon: './icons/icon-72x72.png' },
-      { action: 'close', title: '关闭', icon: './icons/icon-72x72.png' },
-    ],
-  };
-
-  event.waitUntil(
-    self.registration.showNotification('FitTrack', options)
-  );
-});
-
-// 通知点击事件
-self.addEventListener('notificationclick', (event) => {
-  event.notification.close();
-
-  if (event.action === 'explore') {
-    event.waitUntil(
-      clients.openWindow('./')
-    );
+// 更新提示：页面发送 SKIP_WAITING 后立即接管
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
   }
 });
