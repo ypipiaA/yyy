@@ -4,12 +4,22 @@ let workoutSeconds = 0;
 let workoutTimerInterval = null;
 
 function initTabs() {
-  document.querySelectorAll('.nav-btn').forEach((btn) => {
+  const buttons = document.querySelectorAll('.nav-btn');
+  const syncAria = () => {
+    buttons.forEach((b) => {
+      b.setAttribute('aria-selected', b.classList.contains('active') ? 'true' : 'false');
+    });
+  };
+  syncAria();
+
+  buttons.forEach((btn) => {
     btn.addEventListener('click', () => {
-      document.querySelectorAll('.nav-btn').forEach((b) => b.classList.remove('active'));
+      buttons.forEach((b) => b.classList.remove('active'));
       document.querySelectorAll('.tab').forEach((t) => t.classList.remove('active'));
       btn.classList.add('active');
       document.getElementById(`tab-${btn.dataset.tab}`).classList.add('active');
+      syncAria();
+      btn.scrollIntoView({ inline: 'center', behavior: 'smooth', block: 'nearest' });
 
       if (btn.dataset.tab === 'stats') Stats.refresh();
       if (btn.dataset.tab === 'body') Body.refresh();
@@ -62,8 +72,20 @@ function initPlan() {
   loadSavedPlan();
 }
 
+/**
+ * 计划数据自愈：planDays 不是数组视为坏数据（历史 BUG-1 污染），清除。
+ */
+function sanitizePlan(plan) {
+  if (plan && !Array.isArray(plan.planDays)) {
+    console.warn('检测到损坏的计划数据，已清除');
+    Storage.clearPlan();
+    return null;
+  }
+  return plan;
+}
+
 async function loadSavedPlan() {
-  currentPlan = await Storage.getPlan();
+  currentPlan = sanitizePlan(await Storage.getPlan());
   if (currentPlan) {
     renderSavedPlanSection();
   }
@@ -87,7 +109,9 @@ async function initWorkout() {
   const finishBtn = document.getElementById('finish-workout');
 
   if (!currentPlan) {
-    currentPlan = await Storage.getPlan();
+    currentPlan = sanitizePlan(await Storage.getPlan());
+  } else {
+    currentPlan = sanitizePlan(currentPlan);
   }
 
   if (!currentPlan) {
@@ -100,24 +124,31 @@ async function initWorkout() {
   content.classList.remove('hidden');
 
   daySelect.innerHTML = currentPlan.planDays
-    .map((day, i) => `<option value="${i}">${day.name} - ${day.focus}</option>`)
+    .map(
+      (day, i) =>
+        `<option value="${i}">${escapeHtml(day.name)} - ${escapeHtml(day.focus)}</option>`
+    )
     .join('');
 
   async function renderExercises() {
     const dayIndex = parseInt(daySelect.value);
     const day = currentPlan.planDays[dayIndex];
-    const rest = day.exercises[0] ? day.exercises[0].rest : 0;
+    const rest = day.exercises[0] ? Number(day.exercises[0].rest) || 0 : 0;
 
-    const exercisePromises = day.exercises.map(async (ex, exIndex) => {
-      const last = await Storage.getExerciseLastRecord(ex.name);
-      const lastHtml = last
-        ? `<div class="last-record">上次参考：${last.bestWeight}kg × ${last.bestReps}次（${formatDate(last.date)}，最大 ${last.maxWeight}kg）</div>`
-        : '';
-      return `
+    // 一次取出全部 logs，循环内查找（避免逐动作重复读取）
+    const logs = await Storage.getLogs();
+
+    exerciseList.innerHTML = day.exercises
+      .map((ex, exIndex) => {
+        const last = findExerciseLastRecord(logs, ex.name);
+        const lastHtml = last
+          ? `<div class="last-record">上次参考：${Number(last.bestWeight)}kg × ${Number(last.bestReps)}次（${formatDate(last.date)}，最大 ${Number(last.maxWeight)}kg）</div>`
+          : '';
+        return `
       <div class="exercise-card" data-exercise="${exIndex}">
         <div class="exercise-card-header">
-          <span class="exercise-name">${ex.name}</span>
-          <span class="exercise-target">${ex.sets}组 × ${ex.reps}次 · 休息${rest}s</span>
+          <span class="exercise-name">${escapeHtml(ex.name)}</span>
+          <span class="exercise-target">${Number(ex.sets)}组 × ${escapeHtml(String(ex.reps))}次 · 休息${rest}s</span>
         </div>
         ${lastHtml}
         <table class="sets-table">
@@ -133,9 +164,9 @@ async function initWorkout() {
             ${Array.from({ length: ex.sets }, (_, i) => `
               <tr>
                 <td>${i + 1}</td>
-                <td><input type="number" class="set-weight" min="0" step="0.5" value=""></td>
-                <td><input type="number" class="set-reps" min="0" value=""></td>
-                <td><input type="checkbox" class="set-done"></td>
+                <td><input type="number" class="set-weight" inputmode="decimal" min="0" step="0.5" value=""></td>
+                <td><input type="number" class="set-reps" inputmode="numeric" min="0" value=""></td>
+                <td><input type="checkbox" class="set-done" aria-label="标记本组完成"></td>
               </tr>
             `).join('')}
           </tbody>
@@ -143,31 +174,42 @@ async function initWorkout() {
         <button class="add-set-btn" data-exercise="${exIndex}">+ 加一组</button>
       </div>
     `;
-    });
-
-    const exerciseHtml = await Promise.all(exercisePromises);
-    exerciseList.innerHTML = exerciseHtml.join('');
-
-    exerciseList.querySelectorAll('.add-set-btn').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const card = btn.closest('.exercise-card');
-        const tbody = card.querySelector('tbody');
-        const rowCount = tbody.querySelectorAll('tr').length + 1;
-        const row = document.createElement('tr');
-        row.innerHTML = `
-          <td>${rowCount}</td>
-          <td><input type="number" class="set-weight" min="0" step="0.5" value=""></td>
-          <td><input type="number" class="set-reps" min="0" value=""></td>
-          <td><input type="checkbox" class="set-done"></td>
-        `;
-        tbody.appendChild(row);
-      });
-    });
-
-    startWorkoutTimer();
+      })
+      .join('');
   }
 
-  daySelect.addEventListener('change', renderExercises);
+  // 用属性赋值（而非 addEventListener）避免多次 initWorkout 造成监听器累积
+  daySelect.onchange = renderExercises;
+
+  // 事件委托：加一组按钮
+  exerciseList.onclick = (e) => {
+    const btn = e.target.closest('.add-set-btn');
+    if (!btn) return;
+    const card = btn.closest('.exercise-card');
+    const tbody = card.querySelector('tbody');
+    const rowCount = tbody.querySelectorAll('tr').length + 1;
+    const row = document.createElement('tr');
+    row.innerHTML = `
+      <td>${rowCount}</td>
+      <td><input type="number" class="set-weight" inputmode="decimal" min="0" step="0.5" value=""></td>
+      <td><input type="number" class="set-reps" inputmode="numeric" min="0" value=""></td>
+      <td><input type="checkbox" class="set-done" aria-label="标记本组完成"></td>
+    `;
+    tbody.appendChild(row);
+  };
+
+  // 惰性启动计时：首次勾选任一"完成"复选框时开始计时（打开训练页不计时）
+  exerciseList.onchange = (e) => {
+    if (
+      e.target.classList.contains('set-done') &&
+      e.target.checked &&
+      workoutTimerInterval === null &&
+      workoutSeconds === 0
+    ) {
+      startWorkoutTimer();
+    }
+  };
+
   await renderExercises();
 
   finishBtn.onclick = async () => {
@@ -209,9 +251,14 @@ async function initWorkout() {
       exercises,
     });
 
+    // 计时归零，不自动重启（下次首次勾选时再计时）
+    workoutSeconds = 0;
+    updateWorkoutTimerDisplay();
+
     showToast('训练记录已保存！');
     renderHistory();
     Stats.refresh();
+    AchievementsUI.checkNewAchievements(await buildAchievementStats());
     renderExercises();
   };
 
@@ -220,8 +267,7 @@ async function initWorkout() {
 
 /* ---- 训练计时 ---- */
 function startWorkoutTimer() {
-  stopWorkoutTimer();
-  workoutSeconds = 0;
+  if (workoutTimerInterval) return;
   updateWorkoutTimerDisplay();
   workoutTimerInterval = setInterval(() => {
     workoutSeconds++;
@@ -238,6 +284,47 @@ function stopWorkoutTimer() {
 
 function updateWorkoutTimerDisplay() {
   document.getElementById('workout-timer-display').textContent = formatDuration(workoutSeconds);
+}
+
+/* ---- 成就统计 ---- */
+async function buildAchievementStats(logs, records) {
+  if (!logs) logs = await Storage.getLogs();
+  if (!records) records = await Storage.getBodyRecords();
+
+  let totalVolume = 0;
+  let maxWeight = 0;
+  let earlyMorningWorkouts = 0;
+  let lateNightWorkouts = 0;
+  let weekendWorkouts = 0;
+
+  logs.forEach((log) => {
+    const d = new Date(log.date);
+    const hour = d.getHours();
+    const weekday = d.getDay();
+    if (hour < 8) earlyMorningWorkouts++;
+    if (hour >= 22) lateNightWorkouts++;
+    if (weekday === 0 || weekday === 6) weekendWorkouts++;
+
+    log.exercises.forEach((ex) => {
+      ex.sets.forEach((set) => {
+        if (set.done) {
+          if (set.weight && set.reps) totalVolume += set.weight * set.reps;
+          if (set.weight > maxWeight) maxWeight = set.weight;
+        }
+      });
+    });
+  });
+
+  return {
+    totalWorkouts: logs.length,
+    streak: Stats.calcStreak(logs),
+    totalVolume,
+    maxWeight,
+    bodyWeight: records.length > 0 ? records[records.length - 1].weight : 70,
+    earlyMorningWorkouts,
+    lateNightWorkouts,
+    weekendWorkouts,
+  };
 }
 
 /* ---- 历史记录 ---- */
@@ -262,13 +349,13 @@ async function renderHistory() {
       <div class="history-item">
         <div class="history-head">
           <div class="history-main">
-            <strong>${log.dayName}</strong> · ${log.focus}
+            <strong>${escapeHtml(log.dayName)}</strong> · ${escapeHtml(log.focus)}
             <div class="history-date">${formatDateTime(log.date)}${duration}</div>
           </div>
           <div class="history-actions">
             <span class="history-detail">${totalSets} 组</span>
             <button class="btn-icon" data-toggle="${i}">详情</button>
-            <button class="btn-icon btn-danger-icon" data-delete="${i}" title="删除记录">✕</button>
+            <button class="btn-icon btn-danger-icon" data-delete="${i}" title="删除记录" aria-label="删除记录">✕</button>
           </div>
         </div>
         <div class="history-expand hidden" data-expand="${i}">
@@ -278,11 +365,11 @@ async function renderHistory() {
               const doneCount = done.length;
               const detail =
                 doneCount > 0
-                  ? done.map((s) => `${s.weight}kg×${s.reps}`).join('、')
+                  ? done.map((s) => `${Number(s.weight)}kg×${Number(s.reps)}`).join('、')
                   : '未完成';
               return `
             <div class="history-exercise">
-              <span>${ex.name}</span>
+              <span>${escapeHtml(ex.name)}</span>
               <span class="history-exercise-detail">${doneCount}/${ex.sets.length} 组 · ${detail}</span>
             </div>`;
             })
@@ -292,26 +379,27 @@ async function renderHistory() {
     })
     .join('');
 
-  container.querySelectorAll('[data-toggle]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const i = btn.dataset.toggle;
+  // 容器级事件委托（避免逐条绑定监听器）
+  container.onclick = async (e) => {
+    const toggleBtn = e.target.closest('[data-toggle]');
+    if (toggleBtn) {
+      const i = toggleBtn.dataset.toggle;
       const expand = container.querySelector(`[data-expand="${i}"]`);
       expand.classList.toggle('hidden');
-      btn.textContent = expand.classList.contains('hidden') ? '详情' : '收起';
-    });
-  });
-
-  container.querySelectorAll('[data-delete]').forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      const i = parseInt(btn.dataset.delete);
+      toggleBtn.textContent = expand.classList.contains('hidden') ? '详情' : '收起';
+      return;
+    }
+    const deleteBtn = e.target.closest('[data-delete]');
+    if (deleteBtn) {
+      const i = parseInt(deleteBtn.dataset.delete);
       if (confirm('确定删除这条训练记录吗？')) {
         await Storage.deleteLog(i);
         showToast('记录已删除');
         renderHistory();
         Stats.refresh();
       }
-    });
-  });
+    }
+  };
 }
 
 /* ---- 问候语 ---- */
@@ -336,47 +424,36 @@ document.addEventListener('DOMContentLoaded', async () => {
   AchievementsUI.init();
   Settings.init();
   await updateGreeting();
-  
-  // 检查成就
-  const stats = {
-    totalWorkouts: (await Storage.getLogs()).length,
-    streak: Stats.calcStreak(await Storage.getLogs()),
-    totalVolume: await calculateTotalVolume(),
-    bodyWeight: await getBodyWeight(),
-    earlyMorningWorkouts: 0,
-    lateNightWorkouts: 0,
-    weekendWorkouts: 0,
-  };
-  AchievementsUI.checkNewAchievements(stats);
-  
-  // 注册Service Worker
+
+  // 首次启动写注册日期（用于时间类成就）
+  if (!achievementSystem.registrationDate) {
+    achievementSystem.setRegistrationDate();
+  }
+
+  // 检查成就（真实统计，替代硬编码 0）
+  AchievementsUI.checkNewAchievements(await buildAchievementStats());
+
+  // 注册 Service Worker 并监听新版本
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('service-worker.js')
+    navigator.serviceWorker
+      .register('service-worker.js')
       .then((registration) => {
         console.log('ServiceWorker registered:', registration.scope);
+        registration.addEventListener('updatefound', () => {
+          const newWorker = registration.installing;
+          if (!newWorker) return;
+          newWorker.addEventListener('statechange', () => {
+            if (
+              newWorker.state === 'installed' &&
+              navigator.serviceWorker.controller
+            ) {
+              showToast('新版本已就绪，刷新后生效');
+            }
+          });
+        });
       })
       .catch((error) => {
         console.log('ServiceWorker registration failed:', error);
       });
   }
 });
-
-async function calculateTotalVolume() {
-  const logs = await Storage.getLogs();
-  let totalVolume = 0;
-  logs.forEach(log => {
-    log.exercises.forEach(ex => {
-      ex.sets.forEach(set => {
-        if (set.done && set.weight && set.reps) {
-          totalVolume += set.weight * set.reps;
-        }
-      });
-    });
-  });
-  return totalVolume;
-}
-
-async function getBodyWeight() {
-  const records = await Storage.getBodyRecords();
-  return records.length > 0 ? records[records.length - 1].weight : 70;
-}

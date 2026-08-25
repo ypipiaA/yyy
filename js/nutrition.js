@@ -88,73 +88,6 @@ const DEFAULT_NUTRITION_GOALS = {
 };
 
 /**
- * 根据体重和目标计算每日营养需求
- */
-function calculateNutritionGoals(weight, goal, activityLevel) {
-  // 基础代谢率（Mifflin-St Jeor公式）
-  const bmr = weight * 24; // 简化计算
-  
-  // 活动系数
-  const activityMultipliers = {
-    sedentary: 1.2,      // 久坐
-    light: 1.375,        // 轻度活动
-    moderate: 1.55,      // 中度活动
-    active: 1.725,       // 活跃
-    veryActive: 1.9,     // 非常活跃
-  };
-  
-  const tdee = bmr * (activityMultipliers[activityLevel] || 1.55);
-  
-  // 根据目标调整
-  let calorieGoal = tdee;
-  let proteinMultiplier = 1.6; // 每公斤体重
-  let carbMultiplier = 4;
-  let fatMultiplier = 1;
-  
-  switch (goal) {
-    case 'muscle':
-      calorieGoal = tdee + 300; // 热量盈余
-      proteinMultiplier = 2.0;
-      carbMultiplier = 5;
-      fatMultiplier = 1;
-      break;
-    case 'fat':
-      calorieGoal = tdee - 500; // 热量缺口
-      proteinMultiplier = 2.2; // 增加蛋白质保护肌肉
-      carbMultiplier = 3;
-      fatMultiplier = 0.8;
-      break;
-    case 'strength':
-      calorieGoal = tdee + 200;
-      proteinMultiplier = 1.8;
-      carbMultiplier = 5;
-      fatMultiplier = 1.2;
-      break;
-    case 'endurance':
-      calorieGoal = tdee + 100;
-      proteinMultiplier = 1.4;
-      carbMultiplier = 6;
-      fatMultiplier = 1;
-      break;
-    default:
-      break;
-  }
-  
-  const protein = Math.round(weight * proteinMultiplier);
-  const carbs = Math.round((calorieGoal * carbMultiplier / 17) / weight * weight);
-  const fat = Math.round((calorieGoal * fatMultiplier / 9) / weight * weight);
-  
-  return {
-    calories: Math.round(calorieGoal),
-    protein,
-    carbs,
-    fat,
-    fiber: 25,
-    water: weight * 35, // 每公斤体重35ml
-  };
-}
-
-/**
  * 营养追踪类
  */
 class NutritionTracker {
@@ -219,12 +152,12 @@ class NutritionTracker {
   
   /**
    * 获取今日营养摄入
+   * "今天"的判定统一用客户端本地日期（formatDate）。
+   * 注：历史数据中按 UTC 记录的条目保持原样，不强行重算；仅保证判定口径一律本地日期。
    */
   getTodayIntake() {
-    const today = new Date().toISOString().split('T')[0];
-    const todayMeals = this.meals.filter(m => 
-      m.date.startsWith(today)
-    );
+    const today = formatDate(new Date());
+    const todayMeals = this.meals.filter(m => formatDate(m.date) === today);
     
     let totalCalories = 0;
     let totalProtein = 0;
@@ -253,10 +186,8 @@ class NutritionTracker {
    * 获取指定日期的营养摄入
    */
   getDateIntake(date) {
-    const dateStr = date.toISOString().split('T')[0];
-    const dateMeals = this.meals.filter(m => 
-      m.date.startsWith(dateStr)
-    );
+    const dateStr = formatDate(date);
+    const dateMeals = this.meals.filter(m => formatDate(m.date) === dateStr);
     
     let totalCalories = 0;
     let totalProtein = 0;
@@ -290,7 +221,7 @@ class NutritionTracker {
       const date = new Date();
       date.setDate(date.getDate() - i);
       trend.push({
-        date: date.toISOString().split('T')[0],
+        date: formatDate(date),
         ...this.getDateIntake(date),
       });
     }
@@ -315,9 +246,9 @@ class NutritionTracker {
    * 获取今日喝水量
    */
   getTodayWater() {
-    const today = new Date().toISOString().split('T')[0];
+    const today = formatDate(new Date());
     return this.waterLog
-      .filter(w => w.date.startsWith(today))
+      .filter(w => formatDate(w.date) === today)
       .reduce((sum, w) => sum + w.amount, 0);
   }
   
@@ -366,31 +297,6 @@ class NutritionTracker {
   }
   
   /**
-   * 获取食物建议
-   */
-  getFoodSuggestions(nutrient) {
-    const allFoods = [
-      ...FOOD_DATABASE.protein,
-      ...FOOD_DATABASE.carbs,
-      ...FOOD_DATABASE.fats,
-      ...FOOD_DATABASE.vegetables,
-    ];
-    
-    switch (nutrient) {
-      case 'protein':
-        return allFoods.sort((a, b) => b.protein - a.protein).slice(0, 5);
-      case 'carbs':
-        return allFoods.sort((a, b) => b.carbs - a.carbs).slice(0, 5);
-      case 'fat':
-        return allFoods.sort((a, b) => b.fat - a.fat).slice(0, 5);
-      case 'lowCalorie':
-        return allFoods.sort((a, b) => a.calories - b.calories).slice(0, 5);
-      default:
-        return allFoods.slice(0, 5);
-    }
-  }
-  
-  /**
    * 搜索食物
    */
   searchFood(query) {
@@ -409,20 +315,6 @@ class NutritionTracker {
   }
   
   /**
-   * 获取宏量营养素比例
-   */
-  getMacroRatio() {
-    const intake = this.getTodayIntake();
-    const totalCalories = intake.calories || 1;
-    
-    return {
-      protein: Math.round(intake.protein * 4 / totalCalories * 100),
-      carbs: Math.round(intake.carbs * 4 / totalCalories * 100),
-      fat: Math.round(intake.fat * 9 / totalCalories * 100),
-    };
-  }
-  
-  /**
    * 导出营养数据
    */
   exportData() {
@@ -435,13 +327,17 @@ class NutritionTracker {
   }
   
   /**
-   * 导入营养数据
+   * 导入营养数据（带结构校验，非法数据返回 false）
    */
   importData(data) {
-    if (data.meals) this.meals = data.meals;
-    if (data.waterLog) this.waterLog = data.waterLog;
-    if (data.goals) this.goals = data.goals;
+    if (!data || typeof data !== 'object') return false;
+    if (Array.isArray(data.meals)) this.meals = data.meals;
+    if (Array.isArray(data.waterLog)) this.waterLog = data.waterLog;
+    if (data.goals && typeof data.goals === 'object') {
+      this.goals = { ...DEFAULT_NUTRITION_GOALS, ...data.goals };
+    }
     this.saveToStorage();
+    return true;
   }
   
   /**

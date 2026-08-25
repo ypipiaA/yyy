@@ -3,6 +3,7 @@
 “今日”类端点接受客户端本地日期 ?date=YYYY-MM-DD（推荐显式传入，见规格 §0.3）；
 缺省使用服务器本地今天。日期区间统一为半开区间 [day, day+1)。
 """
+from datetime import datetime
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -50,7 +51,7 @@ class MealResponse(BaseModel):
 
     id: int
     name: str
-    date: object
+    date: datetime
     foods: List[FoodItem]
     total_calories: float
     total_protein: float
