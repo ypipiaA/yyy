@@ -35,11 +35,30 @@ jobs:
             -alias fittrack -keyalg RSA -keysize 2048 -validity 10000 \
             -keystore android.keystore -storepass "$KS_PASS" -keypass "$KS_PASS"
 
+      - name: Generate Android project
+        env:
+          BUBBLEWRAP_KEYSTORE_PASSWORD: ${{ env.KS_PASS }}
+          BUBBLEWRAP_KEY_PASSWORD: ${{ env.KS_PASS }}
+        run: |
+          set -o pipefail
+          bubblewrap doctor 2>&1 | tee doctor.log || true
+          bubblewrap update --skipVersionUpgrade 2>&1 | tee update.log
+
       - name: Build APK with Bubblewrap
         env:
           BUBBLEWRAP_KEYSTORE_PASSWORD: ${{ env.KS_PASS }}
           BUBBLEWRAP_KEY_PASSWORD: ${{ env.KS_PASS }}
-        run: bubblewrap build --skipPwaValidation
+        run: |
+          set -o pipefail
+          bubblewrap build --skipPwaValidation 2>&1 | tee build.log
+
+      - name: Push debug logs on failure
+        if: failure()
+        run: |
+          mkdir -p /tmp/dbg && cp -f *.log /tmp/dbg/ 2>/dev/null || true
+          cd /tmp/dbg && git init -q && git config user.email ci@local && git config user.name ci
+          git add -A && git commit -qm "ci debug logs"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/ypipiaA/yyy.git" HEAD:refs/heads/ci-debug
 
       - name: Generate assetlinks.json
         run: |
