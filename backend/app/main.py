@@ -75,10 +75,12 @@ class FrontendStaticFiles(StaticFiles):
     _blocked_suffixes = (".py", ".db", ".sqlite", ".sqlite3", ".toml")
 
     async def get_response(self, path: str, scope: Any) -> Any:
-        first_segment = path.lstrip("/").split("/", 1)[0].lower()
+        # Windows 下 Starlette 会把路径规范成反斜杠，先统一分隔符
+        normalized = path.replace("\\", "/").lstrip("/").lower()
+        first_segment = normalized.split("/", 1)[0]
         if (
             first_segment in self._blocked_dirs
-            or path.lower().endswith(self._blocked_suffixes)
+            or normalized.endswith(self._blocked_suffixes)
         ):
             raise StarletteHTTPException(status_code=404)
         return await super().get_response(path, scope)
