@@ -1,0 +1,94 @@
+name: Build Offline Android APK
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      JAVA_HOME: /usr/lib/jvm/temurin-17-jdk-amd64
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Prepare web assets (fully offline bundle)
+        run: |
+          mkdir -p www
+          cp index.html manifest.json www/
+          cp -r css js icons www/
+          # Service worker is unnecessary inside the app shell; avoid registering it
+          # (registration would fail harmlessly, but skip the file to keep things clean)
+          ls www
+
+      - name: Create Capacitor project
+        run: |
+          npm init -y > /dev/null
+          npm i @capacitor/core@6 @capacitor/cli@6 @capacitor/android@6
+          npx cap init "FitTrack" "org.futuresparkzone.fittrack.local" --web-dir www
+          npx cap add android
+
+      - name: Generate app icons from FitTrack logo
+        run: |
+          npm i @capacitor/assets > /dev/null 2>&1 || true
+          mkdir -p assets
+          cp icons/icon-512x512.png assets/logo.png
+          cp icons/icon-512x512.png assets/logo-dark.png
+          npx capacitor-assets generate --android 2>&1 | tail -3 || echo "icon generation skipped, using defaults"
+
+      - name: Sync web assets into Android project
+        run: npx cap sync android
+
+      - name: Build release APK
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleRelease 2>&1 | tee ../gradle.log | tail -20
+
+      - name: Sign APK
+        run: |
+          KS_PASS=$(openssl rand -hex 16)
+          echo "::add-mask::$KS_PASS"
+          keytool -genkeypair \
+            -dname "CN=ypipiaA, OU=Engineering, O=FutureSparkZone, C=CN" \
+            -alias fittrack -keyalg RSA -keysize 2048 -validity 10000 \
+            -keystore offline.keystore -storepass "$KS_PASS" -keypass "$KS_PASS"
+          BT="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)"
+          UNSIGNED=android/app/build/outputs/apk/release/app-release-unsigned.apk
+          "$BT/zipalign" -f -p 4 "$UNSIGNED" aligned.apk
+          "$BT/apksigner" sign --ks offline.keystore --ks-pass pass:"$KS_PASS" \
+            --key-pass pass:"$KS_PASS" --out FitTrack-offline.apk aligned.apk
+          echo "$KS_PASS" > offline-keystore-password.txt
+          ls -la FitTrack-offline.apk
+
+      - name: Push debug logs on failure
+        if: failure()
+        run: |
+          mkdir -p /tmp/dbg && cp -f gradle.log /tmp/dbg/ 2>/dev/null || true
+          cd /tmp/dbg && git init -q && git config user.email ci@local && git config user.name ci
+          git add -A && git commit -qm "offline apk debug logs" || exit 0
+          git push -f "https://x-access-token:${{ github.token }}@github.com/ypipiaA/yyy.git" HEAD:refs/heads/ci-debug-offline
+
+      - name: Upload build artifacts (private)
+        uses: actions/upload-artifact@v4
+        with:
+          name: fittrack-android-offline
+          path: |
+            FitTrack-offline.apk
+            offline.keystore
+            offline-keystore-password.txt
+
+      - name: Create GitHub Release with offline APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create v3.1-android-offline FitTrack-offline.apk \
+            --title "FitTrack v3.1 离线版安卓 APK" \
+            --notes "完全离线版：应用完整打包进 APK，无需联网即可使用，数据保存在手机本地。" \
+            || gh release upload v3.1-android-offline FitTrack-offline.apk --clobber
