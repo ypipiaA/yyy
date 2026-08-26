@@ -1,0 +1,1 @@
+[{"relation": ["delegate_permission/common.handle_all_urls"], "target": {"namespace": "android_app", "package_name": "org.futuresparkzone.fittrack", "sha256_cert_fingerprints": ["88:AC:A9:A7:FB:A3:BE:D2:1C:61:E6:9F:4B:12:19:BB:1A:B6:65:99:22:27:A6:1C:A4:D1:4D:25:08:10:C7:61"]}}]
