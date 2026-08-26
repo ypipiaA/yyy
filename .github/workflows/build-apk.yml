@@ -21,9 +21,14 @@ jobs:
 
       - name: Configure Bubblewrap paths
         run: |
+          # Bubblewrap expects androidSdkPath to contain bin/sdkmanager directly
+          SDK_DIR="$ANDROID_HOME/cmdline-tools/latest"
+          ls "$SDK_DIR/bin/sdkmanager"
           mkdir -p ~/.bubblewrap
-          printf '{"jdkPath": "%s", "androidSdkPath": "%s"}\n' "$JAVA_HOME_17_X64" "$ANDROID_HOME" > ~/.bubblewrap/config.json
+          printf '{"jdkPath": "%s", "androidSdkPath": "%s"}\n' "$JAVA_HOME_17_X64" "$SDK_DIR" > ~/.bubblewrap/config.json
           cat ~/.bubblewrap/config.json
+          # Pre-accept licenses for the sdk_root bubblewrap will use
+          yes | "$SDK_DIR/bin/sdkmanager" --licenses --sdk_root="$SDK_DIR" > /dev/null 2>&1 || true
 
       - name: Generate signing keystore
         run: |
