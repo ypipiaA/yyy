@@ -6,7 +6,7 @@
  * - 静态资源（含跨域 CDN）：cache-first，未命中写入 runtime 缓存
  */
 
-const PRECACHE_NAME = 'fittrack-precache-v4';
+const PRECACHE_NAME = 'fittrack-precache-v5';
 const RUNTIME_NAME = 'fittrack-runtime';
 
 const urlsToCache = [
@@ -30,6 +30,7 @@ const urlsToCache = [
   './js/theme.js',
   './js/settings.js',
   './js/workout-session.js',
+  './js/plan-editor.js',
   './js/vendor/chart.umd.min.js',
   './manifest.json',
   './icons/icon-72x72.png',

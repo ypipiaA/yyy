@@ -36,36 +36,55 @@
       <!-- 训练计划 -->
       <section id="tab-plan" class="tab active" role="tabpanel">
         <div class="card">
-          <h2>生成训练计划</h2>
-          <form id="plan-form" class="form">
-            <label>
-              训练目标
-              <select id="goal" required>
-                <option value="muscle">增肌塑形</option>
-                <option value="fat">减脂燃脂</option>
-                <option value="strength">力量提升</option>
-                <option value="endurance">耐力训练</option>
-              </select>
-            </label>
-            <label>
-              每周训练天数
-              <select id="days" required>
-                <option value="3">3 天</option>
-                <option value="4">4 天</option>
-                <option value="5">5 天</option>
-                <option value="6">6 天</option>
-              </select>
-            </label>
-            <label>
-              经验水平
-              <select id="level" required>
-                <option value="beginner">新手</option>
-                <option value="intermediate">中级</option>
-                <option value="advanced">高级</option>
-              </select>
-            </label>
-            <button type="submit" class="btn btn-primary">生成计划</button>
+          <div class="plan-mode-tabs" id="plan-mode-tabs" role="tablist">
+            <button type="button" class="mode-tab active" data-mode="generate" role="tab" aria-selected="true">⚡ 智能生成</button>
+            <button type="button" class="mode-tab" data-mode="manual" role="tab" aria-selected="false">✏️ 手动创建</button>
+          </div>
+          <form id="plan-form" class="form plan-form">
+            <fieldset class="field-group">
+              <legend class="field-label">训练目标</legend>
+              <div class="goal-grid" id="goal-grid" role="radiogroup" aria-label="训练目标">
+                <button type="button" class="goal-option active" data-goal="muscle" aria-pressed="true">
+                  <span class="goal-icon">💪</span>
+                  <span class="goal-name">增肌塑形</span>
+                  <span class="goal-desc">4组 · 8-12次</span>
+                </button>
+                <button type="button" class="goal-option" data-goal="fat" aria-pressed="false">
+                  <span class="goal-icon">🔥</span>
+                  <span class="goal-name">减脂燃脂</span>
+                  <span class="goal-desc">3组 · 12-15次</span>
+                </button>
+                <button type="button" class="goal-option" data-goal="strength" aria-pressed="false">
+                  <span class="goal-icon">🏋️</span>
+                  <span class="goal-name">力量提升</span>
+                  <span class="goal-desc">5组 · 3-6次</span>
+                </button>
+                <button type="button" class="goal-option" data-goal="endurance" aria-pressed="false">
+                  <span class="goal-icon">🏃</span>
+                  <span class="goal-name">耐力训练</span>
+                  <span class="goal-desc">3组 · 15-20次</span>
+                </button>
+              </div>
+            </fieldset>
+            <fieldset class="field-group">
+              <legend class="field-label">每周训练天数</legend>
+              <div class="seg-control" id="days-seg" role="radiogroup" aria-label="每周训练天数">
+                <button type="button" class="seg-btn active" data-days="3" aria-pressed="true">3天</button>
+                <button type="button" class="seg-btn" data-days="4" aria-pressed="false">4天</button>
+                <button type="button" class="seg-btn" data-days="5" aria-pressed="false">5天</button>
+                <button type="button" class="seg-btn" data-days="6" aria-pressed="false">6天</button>
+              </div>
+            </fieldset>
+            <button type="submit" class="btn btn-primary btn-block">✨ 生成计划</button>
           </form>
+          <div id="manual-plan-editor" class="hidden">
+            <label>计划名称
+              <input type="text" id="manual-plan-name" maxlength="20" placeholder="如：我的五分化">
+            </label>
+            <div id="manual-days" class="editor-days"></div>
+            <button type="button" id="manual-add-day" class="btn btn-secondary btn-block">＋ 添加训练日</button>
+            <button type="button" id="manual-save-plan" class="btn btn-primary btn-block">保存为当前计划</button>
+          </div>
         </div>
 
         <div id="plan-result" class="card hidden">
@@ -82,7 +101,10 @@
         <div id="saved-plan" class="card hidden">
           <div class="card-header">
             <h2>当前计划</h2>
-            <span class="badge" id="saved-plan-badge">已保存</span>
+            <div class="card-header-actions">
+              <span class="badge" id="saved-plan-badge">已保存</span>
+              <button id="delete-plan" class="btn-icon btn-danger-icon" aria-label="删除计划">🗑 删除</button>
+            </div>
           </div>
           <div id="saved-plan-content"></div>
         </div>
@@ -97,9 +119,11 @@
           </div>
           <div id="workout-content" class="hidden">
             <button id="start-session" class="btn btn-primary" style="width:100%; margin-bottom:0.75rem;">▶ 开始训练</button>
-            <div class="workout-timer">
+            <div class="workout-timer" id="workout-timer">
               <span>⏱️ 训练计时</span>
               <span class="workout-timer-display" id="workout-timer-display">00:00</span>
+              <button type="button" id="workout-pause" class="workout-pause-btn hidden"
+                      aria-pressed="false" aria-label="暂停训练计时">⏸ 暂停</button>
             </div>
             <label>
               选择训练日
@@ -468,7 +492,7 @@
           <div class="about-logo">
             <span class="logo">💪</span>
             <div class="about-title">FitTrack 健身助手</div>
-            <div class="about-version">v3.1 · 纯前端 · 数据本地存储</div>
+            <div class="about-version">v3.2 · 纯前端 · 数据本地存储</div>
           </div>
           <p class="setting-desc" style="text-align:center;">
             支持训练计划、训练记录、休息计时、进度统计、身体数据追踪与数据备份
@@ -496,6 +520,7 @@
   <script src="js/theme.js"></script>
   <script src="js/settings.js"></script>
   <script src="js/workout-session.js"></script>
+  <script src="js/plan-editor.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

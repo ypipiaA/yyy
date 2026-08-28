@@ -2,6 +2,7 @@ let currentPlan = null;
 let generatedPlan = null;
 let workoutSeconds = 0;
 let workoutTimerInterval = null;
+let workoutPaused = false;
 
 function initTabs() {
   const buttons = document.querySelectorAll('.nav-btn');
@@ -37,6 +38,26 @@ function initPlan() {
   const planTitle = document.getElementById('plan-title');
   const saveBtn = document.getElementById('save-plan');
   const reshuffleBtn = document.getElementById('reshuffle-plan');
+  const modeTabs = document.getElementById('plan-mode-tabs');
+  const manualEditor = document.getElementById('manual-plan-editor');
+
+  initChoiceGroup('goal-grid');
+  initChoiceGroup('days-seg');
+
+  // 模式切换：智能生成 / 手动创建（事件委托，独占 active + 互斥 hidden）
+  modeTabs.addEventListener('click', (e) => {
+    const btn = e.target.closest('.mode-tab');
+    if (!btn || btn.classList.contains('active')) return;
+    modeTabs.querySelectorAll('.mode-tab').forEach((b) => {
+      const isActive = b === btn;
+      b.classList.toggle('active', isActive);
+      b.setAttribute('aria-selected', isActive ? 'true' : 'false');
+    });
+    const isManual = btn.dataset.mode === 'manual';
+    form.classList.toggle('hidden', isManual);
+    manualEditor.classList.toggle('hidden', !isManual);
+    planResult.classList.add('hidden');
+  });
 
   form.addEventListener('submit', (e) => {
     e.preventDefault();
@@ -48,11 +69,10 @@ function initPlan() {
   });
 
   function generateAndRenderPlan(isReshuffle) {
-    const goal = document.getElementById('goal').value;
-    const days = document.getElementById('days').value;
-    const level = document.getElementById('level').value;
+    const goal = getSelectedGoal();
+    const days = getSelectedDays();
 
-    generatedPlan = generatePlan(goal, days, level);
+    generatedPlan = generatePlan(goal, days);
     planTitle.textContent = `${generatedPlan.goalLabel} · 每周 ${days} 天`;
     renderPlan(generatedPlan, planDays);
     planResult.classList.remove('hidden');
@@ -69,7 +89,39 @@ function initPlan() {
     initWorkout();
   });
 
+  // 删除当前计划（属性赋值，防止重复绑定）
+  document.getElementById('delete-plan').onclick = () => {
+    if (!confirm('确定删除当前计划吗？训练历史不受影响。')) return;
+    Storage.clearPlan();
+    currentPlan = null;
+    document.getElementById('saved-plan').classList.add('hidden');
+    initWorkout(); // 训练页回到空状态
+    showToast('计划已删除');
+  };
+
   loadSavedPlan();
+}
+
+/** 单选按钮组：事件委托，点击子按钮独占 .active 并同步 aria-pressed */
+function initChoiceGroup(containerId) {
+  const container = document.getElementById(containerId);
+  container.addEventListener('click', (e) => {
+    const btn = e.target.closest('button');
+    if (!btn || !container.contains(btn)) return;
+    container.querySelectorAll('button').forEach((b) => {
+      const isActive = b === btn;
+      b.classList.toggle('active', isActive);
+      b.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+    });
+  });
+}
+
+function getSelectedGoal() {
+  return document.querySelector('#goal-grid .goal-option.active').dataset.goal;
+}
+
+function getSelectedDays() {
+  return parseInt(document.querySelector('#days-seg .seg-btn.active').dataset.days);
 }
 
 /**
@@ -107,6 +159,9 @@ async function initWorkout() {
   const daySelect = document.getElementById('workout-day');
   const exerciseList = document.getElementById('exercise-list');
   const finishBtn = document.getElementById('finish-workout');
+
+  // 暂停/继续按钮（属性赋值，防止重复 init 累积监听器）
+  document.getElementById('workout-pause').onclick = toggleWorkoutPause;
 
   if (!currentPlan) {
     currentPlan = sanitizePlan(await Storage.getPlan());
@@ -207,7 +262,8 @@ async function initWorkout() {
       e.target.classList.contains('set-done') &&
       e.target.checked &&
       workoutTimerInterval === null &&
-      workoutSeconds === 0
+      workoutSeconds === 0 &&
+      !workoutPaused
     ) {
       startWorkoutTimer();
     }
@@ -285,12 +341,60 @@ function startWorkoutTimer() {
     workoutSeconds++;
     updateWorkoutTimerDisplay();
   }, 1000);
+  workoutPaused = false;
+  updatePauseButton();
 }
 
 function stopWorkoutTimer() {
   if (workoutTimerInterval) {
     clearInterval(workoutTimerInterval);
     workoutTimerInterval = null;
+  }
+  workoutPaused = false;
+  updatePauseButton();
+}
+
+function pauseWorkoutTimer() {
+  clearInterval(workoutTimerInterval);
+  workoutTimerInterval = null;
+  workoutPaused = true;
+  updatePauseButton();
+}
+
+function resumeWorkoutTimer() {
+  workoutPaused = false;
+  startWorkoutTimer();
+}
+
+function toggleWorkoutPause() {
+  if (workoutPaused) {
+    resumeWorkoutTimer();
+  } else {
+    pauseWorkoutTimer();
+  }
+}
+
+/** 暂停按钮三态单点维护：未开始（隐藏）/ 计时中（⏸ 暂停）/ 已暂停（▶ 继续） */
+function updatePauseButton() {
+  const btn = document.getElementById('workout-pause');
+  const timerBox = document.getElementById('workout-timer');
+  if (!btn) return;
+  if (workoutPaused) {
+    btn.classList.remove('hidden');
+    btn.textContent = '▶ 继续';
+    btn.setAttribute('aria-pressed', 'true');
+    btn.setAttribute('aria-label', '继续训练计时');
+    if (timerBox) timerBox.classList.add('paused');
+  } else if (workoutTimerInterval !== null) {
+    btn.classList.remove('hidden');
+    btn.textContent = '⏸ 暂停';
+    btn.setAttribute('aria-pressed', 'false');
+    btn.setAttribute('aria-label', '暂停训练计时');
+    if (timerBox) timerBox.classList.remove('paused');
+  } else {
+    btn.classList.add('hidden');
+    btn.setAttribute('aria-pressed', 'false');
+    if (timerBox) timerBox.classList.remove('paused');
   }
 }
 
@@ -430,6 +534,13 @@ async function updateGreeting() {
 document.addEventListener('DOMContentLoaded', async () => {
   initTabs();
   initPlan();
+  PlanEditor.init({
+    onSaved: (plan) => {
+      currentPlan = plan;
+      renderSavedPlanSection();
+      initWorkout();
+    },
+  });
   await initWorkout();
   Timer.init();
   Records.initCalculator(); // 集成点（§3.2）：1RM 计算器表单接管 submit
