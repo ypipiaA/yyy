@@ -34,6 +34,11 @@ function formatDate(iso) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
+/** 本地日期 → date 输入框格式（YYYY-MM-DD） */
+function toDateInputValue(d = new Date()) {
+  return formatDate(d.toISOString());
+}
+
 function formatDateTime(iso) {
   const d = new Date(iso);
   return `${formatDate(iso)} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
@@ -181,6 +186,8 @@ const Storage = {
     }
     const logs = this._get(this.KEY_LOGS, []);
     logs.unshift(log);
+    // 支持补录过去日期：按日期降序排列，历史列表与删除索引保持一致
+    logs.sort((a, b) => new Date(b.date) - new Date(a.date));
     this._set(this.KEY_LOGS, logs);
   },
 

@@ -6,8 +6,9 @@
  * - 静态资源（含跨域 CDN）：cache-first，未命中写入 runtime 缓存
  */
 
-const PRECACHE_NAME = 'fittrack-precache-v5';
-const RUNTIME_NAME = 'fittrack-runtime';
+const PRECACHE_NAME = 'fittrack-precache-v6';
+// runtime 缓存与版本绑定：升级时旧 runtime 条目一并清理，避免 ignoreSearch 命中陈旧版本
+const RUNTIME_NAME = 'fittrack-runtime-v6';
 
 const urlsToCache = [
   './',
@@ -39,9 +40,14 @@ const urlsToCache = [
 ];
 
 // 安装：预缓存失败必须导致安装失败（不吞错），避免"半缓存"假象
+// cache:'reload' 强制绕过 HTTP 缓存，保证预缓存内容是源站最新版本
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(PRECACHE_NAME).then((cache) => cache.addAll(urlsToCache))
+    caches
+      .open(PRECACHE_NAME)
+      .then((cache) =>
+        cache.addAll(urlsToCache.map((u) => new Request(u, { cache: 'reload' })))
+      )
   );
 });
 
@@ -86,8 +92,9 @@ self.addEventListener('fetch', (event) => {
   }
 
   // 其余静态资源：cache-first，未命中 fetch 后写入 runtime 缓存
+  // ignoreSearch：带版本查询参数（?v=）的资源也能命中预缓存，保证离线可用
   event.respondWith(
-    caches.match(request).then((cached) => {
+    caches.match(request, { ignoreSearch: true }).then((cached) => {
       if (cached) return cached;
       return fetch(request)
         .then((response) => {

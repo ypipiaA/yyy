@@ -233,6 +233,14 @@ async function initWorkout() {
       .join('');
   }
 
+  // 训练日期：默认今天，最大不超过今天（支持补录过去的训练）
+  const dateInput = document.getElementById('workout-date');
+  if (dateInput) {
+    const todayStr = toDateInputValue(new Date());
+    dateInput.value = todayStr;
+    dateInput.max = todayStr;
+  }
+
   // 用属性赋值（而非 addEventListener）避免多次 initWorkout 造成监听器累积
   daySelect.onchange = () => {
     WorkoutSession.reset(); // 切换训练日：收起 rest-bar、清除高亮、按钮复位（§3.3-5）
@@ -305,8 +313,15 @@ async function initWorkout() {
 
     stopWorkoutTimer();
 
+    // 训练日期：选了过去的日期则按当天中午计（补录）；今天则用当前时刻
+    let logDate = new Date();
+    if (dateInput && dateInput.value && dateInput.value !== toDateInputValue(new Date())) {
+      const [y, m, d] = dateInput.value.split('-').map(Number);
+      if (y && m && d) logDate = new Date(y, m - 1, d, 12, 0, 0);
+    }
+
     const log = {
-      date: new Date().toISOString(),
+      date: logDate.toISOString(),
       dayName: day.name,
       focus: day.focus,
       duration: workoutSeconds,
@@ -322,6 +337,9 @@ async function initWorkout() {
     await Records.checkNewPRs(log);
     // 集成点（§3.3-5）：完成训练后复位引导模式
     WorkoutSession.reset();
+
+    // 日期选择器复位为今天
+    if (dateInput) dateInput.value = toDateInputValue(new Date());
 
     showToast('训练记录已保存！');
     renderHistory();
@@ -471,7 +489,7 @@ async function renderHistory() {
           <div class="history-actions">
             <span class="history-detail">${totalSets} 组</span>
             <button class="btn-icon" data-toggle="${i}">详情</button>
-            <button class="btn-icon btn-danger-icon" data-delete="${i}" title="删除记录" aria-label="删除记录">✕</button>
+            <button class="btn-icon btn-danger-icon" data-delete="${i}" title="删除记录" aria-label="删除记录">🗑 删除</button>
           </div>
         </div>
         <div class="history-expand hidden" data-expand="${i}">
